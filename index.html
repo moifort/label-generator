@@ -336,10 +336,12 @@ const HOLE_D=1.5, HOLE_INSET=0.5; // percages : centre a (W/2 - HOLE_INSET)
 // a T+relief et SINK (0.02) reste sous le plan de coupe de la derniere couche noire
 // (T - 0.08/2, soit 0.60 pour une base 0.64) -> impression rigoureusement identique.
 const SINK=0.02;
-// Handshake de compatibilite Bambu Studio : la metadonnee "Application" doit commencer par
-// "BambuStudio-" suivi d'une version semver, sinon Bambu marque le fichier comme non-BBL et
-// ignore entierement Metadata/project_settings.config (hauteur de couche, refroidissement, etc.).
-const BBL_GENERATOR='BambuStudio-01.10.00.00';
+// Application volontairement NEUTRE (pas de prefixe "BambuStudio-") : avec ce prefixe, Bambu
+// charge Metadata/project_settings.config et en fait un profil de projet qui ecrase le profil
+// imprimante de l'utilisateur. Sans lui, dont_load_config=true (bbs_3mf.cpp l.1927/4164) et le
+// fichier n'impose aucun reglage. model_settings.config, lui, reste charge sans condition
+// (l.2009) -> l'affectation des extrudeurs (bicolore) est conservee.
+const BBL_GENERATOR='Gridfinity Label Generator';
 const COLOR_A=0x000000;   // base / plaque -> filament 1 (noir)
 const COLOR_B=0xffffff;   // texte + icones en relief -> filament 2 (blanc)
 
@@ -1004,8 +1006,6 @@ function build3MF(){
     }
     model='<?xml version="1.0" encoding="UTF-8"?>\n'+
       '<model unit="millimeter" xml:lang="en-US" xmlns="http://schemas.microsoft.com/3dmanufacturing/core/2015/02" xmlns:BambuStudio="http://schemas.bambulab.com/package/2021">'+
-      // Bambu n'accepte project_settings.config que si Application commence par "BambuStudio-"
-      // (bbs_3mf.cpp: starts_with "BambuStudio-" -> sinon dont_load_config = true et le fichier est saute).
       '<metadata name="Application">'+BBL_GENERATOR+'</metadata>'+
       '<metadata name="BambuStudio:3mfVersion">1</metadata>'+
       '<resources>'+
@@ -1027,10 +1027,9 @@ function build3MF(){
       '</resources><build><item objectid="2" transform="'+PLACE+'" printable="1"/></build></model>';
     modelCfg='<?xml version="1.0" encoding="UTF-8"?>\n<config><object id="2"><metadata key="name" value="Label"/><metadata key="extruder" value="1"/></object></config>';
   }
-  // "name":"project_settings" fait basculer Bambu en mode reglages de projet (Config.cpp: is_project_settings)
-  const projObj={version:"1.10.0.0", name:"project_settings", from:"project",
-    filament_colour:[hex6(COLOR_A),hex6(COLOR_B)],filament_type:["PLA","PLA"]};
-  const projCfg=JSON.stringify(projObj);
+  // Pas de project_settings.config : il ferait creer a Bambu un profil de projet qui remplace
+  // celui de l'imprimante. Les couleurs restent portees par <basematerials> et l'affectation
+  // des extrudeurs par model_settings.config.
   const ct='<?xml version="1.0" encoding="UTF-8"?>\n<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">'+
     '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>'+
     '<Default Extension="model" ContentType="application/vnd.ms-package.3dmanufacturing-3dmodel+xml"/>'+
@@ -1041,8 +1040,7 @@ function build3MF(){
     '[Content_Types].xml':fflate.strToU8(ct),
     '_rels/.rels':fflate.strToU8(rels),
     '3D/3dmodel.model':fflate.strToU8(model),
-    'Metadata/model_settings.config':fflate.strToU8(modelCfg),
-    'Metadata/project_settings.config':fflate.strToU8(projCfg)
+    'Metadata/model_settings.config':fflate.strToU8(modelCfg)
   };
   const zip=fflate.zipSync(files,{level:6});
   const blob=new Blob([zip],{type:'model/3mf'});
