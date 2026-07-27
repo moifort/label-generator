@@ -150,6 +150,58 @@ window.addEventListener("load",function(){
   .download:hover{background:#50745a;}
   .download:active{transform:translateY(1px);}
   .download:disabled{opacity:.4;cursor:not-allowed;box-shadow:none;}
+  .download.secondary{background:var(--field);color:var(--ink);border:1px solid var(--field-line);box-shadow:none;}
+  .download.secondary:hover:not(:disabled){background:#fff;border-color:var(--accent);}
+
+  /* plateau : liste des etiquettes en attente d'export */
+  .cart-head{display:flex;align-items:baseline;justify-content:space-between;gap:10px;}
+  .cart-head label{margin-bottom:6px;}
+  .cart-clear{display:inline-flex;align-items:center;gap:5px;border:none;background:transparent;
+    color:#a8412a;font:600 11px var(--sans);cursor:pointer;padding:3px 6px;border-radius:7px;
+    transition:background .15s;}
+  .cart-clear:hover{background:rgba(168,65,42,.10);}
+  .cart-clear svg{width:13px;height:13px;flex:0 0 auto;}
+
+  .modal{position:fixed;inset:0;z-index:60;display:flex;align-items:center;justify-content:center;
+    background:rgba(12,59,46,.38);padding:20px;}
+  .modal[hidden]{display:none;}
+  .modal-card{background:#fff;border-radius:16px;padding:20px 20px 18px;max-width:340px;width:100%;
+    box-shadow:0 18px 50px rgba(12,59,46,.28);}
+  .modal-title{font:700 16px var(--sans);color:var(--ink);margin-bottom:7px;}
+  .modal-text{font:13px var(--sans);color:var(--dim);line-height:1.45;margin:0 0 18px;}
+  .modal-actions{display:flex;gap:10px;}
+  .modal-btn{flex:1;border-radius:999px;padding:11px;font:600 13px var(--sans);cursor:pointer;
+    border:1px solid var(--field-line);background:var(--field);color:var(--ink);
+    transition:background .15s,border-color .15s;}
+  .modal-btn:hover{background:var(--panel);border-color:var(--accent);}
+  .modal-btn.danger{background:#a8412a;border-color:#a8412a;color:#fff;}
+  .modal-btn.danger:hover{background:#8f3623;border-color:#8f3623;}
+  .cart{display:flex;flex-direction:column;gap:7px;}
+  .cart-item{display:flex;align-items:center;gap:10px;background:var(--field);
+    border:1px solid var(--field-line);border-radius:12px;padding:7px 9px;cursor:pointer;
+    transition:border-color .15s,background .15s;}
+  .cart-item:hover{border-color:var(--accent);}
+  /* etiquette ouverte dans le formulaire : le bouton "Update label" agit sur elle */
+  .cart-item.sel{border-color:var(--accent);background:var(--accent-tint);}
+  /* deux icones cote a cote pour les vis (empreinte + tete), une seule pour les autres categories */
+  .cart-thumb{flex:0 0 56px;height:40px;display:flex;align-items:center;justify-content:center;gap:4px;color:var(--ink);}
+  /* icone seule : elle occupe toute la vignette ; en paire (empreinte + tete), chacune sa moitie */
+  .cart-thumb svg{width:auto;height:auto;max-width:100%;max-height:100%;}
+  .cart-thumb svg:not(:only-child){max-width:calc(50% - 2px);}
+  .cart-txt{flex:1;min-width:0;}
+  .cart-name{font:600 13px var(--sans);color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .cart-meta{font-size:11px;color:var(--dim);margin-top:1px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .cart-qty{display:flex;align-items:center;gap:5px;flex:0 0 auto;}
+  .qbtn{width:24px;height:24px;flex:0 0 auto;border-radius:7px;border:1px solid var(--field-line);
+    background:#fff;color:var(--ink);font:600 15px/1 var(--sans);cursor:pointer;padding:0;transition:border-color .15s;}
+  .qbtn:hover{border-color:var(--accent);}
+  .qbtn:disabled{opacity:.35;cursor:not-allowed;}
+  .cart-n{min-width:17px;text-align:center;font:600 13px var(--mono);color:var(--ink);}
+  .cart-del{flex:0 0 auto;width:24px;height:24px;border:none;background:transparent;color:var(--dim);
+    font:400 17px/1 var(--sans);cursor:pointer;padding:0;border-radius:7px;transition:color .15s,background .15s;}
+  .cart-del:hover{color:#a8412a;background:#fff;}
+  .cart-foot{font-size:11px;color:var(--dim);margin-top:9px;line-height:1.4;}
+  .cart-foot.warn{color:#a8412a;font-weight:600;}
   .advsection{margin-top:22px;border-top:1px solid var(--field-line);padding-top:16px;}
   .adv-toggle{display:inline-flex;align-items:center;gap:10px;font-size:13px;font-weight:600;color:var(--dim);cursor:pointer;user-select:none;}
   .adv-toggle input{position:absolute;opacity:0;width:0;height:0;}
@@ -365,7 +417,21 @@ window.addEventListener("load",function(){
     </div>
 
     <div class="row">
-      <button class="download" id="dl3mf" style="flex:1"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M7 11l5 5 5-5M5 21h14"/></svg>Download 3MF</button>
+      <button class="download" id="updateBtn" style="flex:1;display:none"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>Update label</button>
+      <button class="download" id="addBtn" style="flex:1"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg><span id="addLabel">Add to plate</span></button>
+    </div>
+
+    <div class="group" id="cartGroup" style="display:none;margin-top:16px;">
+      <div class="cart-head">
+        <label>Plate</label>
+        <button type="button" id="clearBtn" class="cart-clear"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4h8v2M18.5 6l-1 14h-11L5.5 6M10 11v6M14 11v6"/></svg>Remove all</button>
+      </div>
+      <div class="cart" id="cartList"></div>
+      <div class="cart-foot" id="cartFoot"></div>
+    </div>
+
+    <div class="row">
+      <button class="download secondary" id="dl3mf" style="flex:1"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M7 11l5 5 5-5M5 21h14"/></svg><span id="dlLabel">Download 3MF</span></button>
     </div>
 
     <p class="foot-note">
@@ -384,6 +450,19 @@ window.addEventListener("load",function(){
   <div class="stage">
     <canvas id="cv"></canvas>
     <div class="toast" id="toast" style="display:none"></div>
+  </div>
+</div>
+
+<!-- Confirmation maison : window.confirm() est neutralise dans certains contextes
+     (retourne false sans rien afficher), le bouton semblerait alors sans effet. -->
+<div class="modal" id="confirmModal" hidden>
+  <div class="modal-card" role="alertdialog" aria-modal="true" aria-labelledby="confirmTitle">
+    <div class="modal-title" id="confirmTitle">Remove all labels?</div>
+    <p class="modal-text" id="confirmText"></p>
+    <div class="modal-actions">
+      <button type="button" class="modal-btn" id="confirmNo">Cancel</button>
+      <button type="button" class="modal-btn danger" id="confirmYes">Remove all</button>
+    </div>
   </div>
 </div>
 
@@ -1085,57 +1164,238 @@ function meshXML(arr){
   }
   return '<vertices>'+verts.map(v=>'<vertex x="'+v+'"/>').join('')+'</vertices><triangles>'+tri.join('')+'</triangles>';
 }
-function build3MF(){
-  const baseArr=tris(baseGeom);
-  // Separation texte / icones : deux groupes distincts pour appliquer des reglages propres au texte.
-  const eg=r=>tris(r.exportGeom||r.geom);   // exporte le monotrait, pas la police d'apercu
-  const textArr=concatF32(raised.filter(r=>r.kind!=='icon').map(eg).filter(a=>a.length));
-  const iconArr=concatF32(raised.filter(r=>r.kind==='icon').map(eg).filter(a=>a.length));
-  const raisedList=raised.map(eg).filter(a=>a.length);
-  const ID='1 0 0 0 1 0 0 0 1 0 0 0';
-  // La geometrie est centree sur l'origine, mais dans Bambu l'origine est le coin avant-gauche
-  // du plateau : sans translation, la moitie de l'etiquette est hors plateau ("laid over the
-  // boundary of plate"). Le <build><item> place donc l'objet au centre du plateau.
-  const BED=[256,256];   // plateau Bambu 256x256
-  const PLACE='1 0 0 0 1 0 0 0 1 '+(BED[0]/2)+' '+(BED[1]/2)+' 0';
-  let model, modelCfg;
-  if(raisedList.length){
-    // Parts colorees (extrudeur 2). ids ressource 3MF : base=2, assemblage=4, parts colorees=3 et 5.
-    const colorParts=[];
-    if(textArr.length) colorParts.push({id:3, name:'Text', arr:textArr, settings:null});
-    if(iconArr.length) colorParts.push({id:5, name:'Icons', arr:iconArr, settings:null});
-    let resObjs='<object id="2" type="model" pid="1" pindex="0"><mesh>'+meshXML(baseArr)+'</mesh></object>';
-    let comps='<component objectid="2" transform="'+ID+'"/>';
-    let partsCfg='<part id="2" subtype="normal_part"><metadata key="name" value="Base"/><metadata key="extruder" value="1"/></part>';
-    for(const p of colorParts){
-      resObjs+='<object id="'+p.id+'" type="model" pid="1" pindex="1"><mesh>'+meshXML(p.arr)+'</mesh></object>';
-      comps+='<component objectid="'+p.id+'" transform="'+ID+'"/>';
-      let s=''; if(p.settings) for(const k in p.settings) s+='<metadata key="'+k+'" value="'+p.settings[k]+'"/>';
-      partsCfg+='<part id="'+p.id+'" subtype="normal_part"><metadata key="name" value="'+p.name+'"/><metadata key="extruder" value="2"/>'+s+'</part>';
-    }
-    model='<?xml version="1.0" encoding="UTF-8"?>\n'+
-      '<model unit="millimeter" xml:lang="en-US" xmlns="http://schemas.microsoft.com/3dmanufacturing/core/2015/02" xmlns:BambuStudio="http://schemas.bambulab.com/package/2021">'+
-      '<metadata name="Application">'+BBL_GENERATOR+'</metadata>'+
-      '<metadata name="BambuStudio:3mfVersion">1</metadata>'+
-      '<resources>'+
-      '<basematerials id="1"><base name="Base" displaycolor="'+hex8(COLOR_A)+'"/><base name="Text" displaycolor="'+hex8(COLOR_B)+'"/></basematerials>'+
-      resObjs+
-      '<object id="4" type="model"><components>'+comps+'</components></object>'+
-      '</resources><build><item objectid="4" transform="'+PLACE+'" printable="1"/></build></model>';
-    modelCfg='<?xml version="1.0" encoding="UTF-8"?>\n<config>'+
-      '<object id="4"><metadata key="name" value="Label"/><metadata key="extruder" value="1"/>'+
-      partsCfg+
-      '</object></config>';
-  } else {
-    model='<?xml version="1.0" encoding="UTF-8"?>\n'+
-      '<model unit="millimeter" xml:lang="en-US" xmlns="http://schemas.microsoft.com/3dmanufacturing/core/2015/02" xmlns:BambuStudio="http://schemas.bambulab.com/package/2021">'+
-      '<metadata name="Application">'+BBL_GENERATOR+'</metadata>'+
-      '<metadata name="BambuStudio:3mfVersion">1</metadata><resources>'+
-      '<basematerials id="1"><base name="Base" displaycolor="'+hex8(COLOR_A)+'"/></basematerials>'+
-      '<object id="2" type="model" pid="1" pindex="0"><mesh>'+meshXML(baseArr)+'</mesh></object>'+
-      '</resources><build><item objectid="2" transform="'+PLACE+'" printable="1"/></build></model>';
-    modelCfg='<?xml version="1.0" encoding="UTF-8"?>\n<config><object id="2"><metadata key="name" value="Label"/><metadata key="extruder" value="1"/></object></config>';
+// ---------- plateau : file d'etiquettes a exporter ensemble ----------
+// Une entree du plateau = un jeu de reglages + une quantite. La geometrie n'est PAS stockee :
+// elle est regeneree a l'export en rejouant les reglages dans le formulaire, qui reste la
+// source de verite unique (meme chemin de code que l'apercu -> aucune divergence possible).
+const CART=[];
+// Derives de SINGLE_ICON_CATS : une nouvelle categorie est prise en compte sans rien recopier ici
+// (un selecteur oublie dans CART_FIELDS ne serait pas enregistre dans le plateau, en silence).
+const CART_FIELDS=['lwidth','category','showIcons','drive','head',
+  ...Object.values(SINGLE_ICON_CATS).map(c=>c.selectId),'text','textH'];
+// Le libelle affiche est celui du bouton de categorie : une seule source de verite.
+function catName(v){const b=document.querySelector('#categoryToggle .toggle-opt[data-val="'+v+'"]');
+  return b?b.textContent.trim():v;}
+const BED=[256,256];        // plateau Bambu 256x256
+const PLATE_MARGIN=10, PLATE_GAP=4;
+
+function snapForm(){const s={};for(const id of CART_FIELDS){const el=document.getElementById(id);
+  s[id]=el.type==='checkbox'?el.checked:el.value;}return s;}
+function applySnap(s){
+  restoringSnap=true;      // le texte enregistre ne doit pas etre ecrase par l'exemple de categorie
+  try{
+    for(const id of CART_FIELDS){const el=document.getElementById(id);
+      if(el.type==='checkbox')el.checked=!!s[id];else el.value=s[id];}
+    document.getElementById('category').dispatchEvent(new Event('change'));   // blocs + pickers
+    enforceCompat();
+    updateSize();                                                            // W/H + base + rebuild
+  } finally { restoringSnap=false; }
+}
+function optText(selectId,value){
+  const o=document.getElementById(selectId).querySelector('option[value="'+value+'"]');
+  return o?o.textContent.trim():value;
+}
+function snapIconDefs(s){       // icones de la vignette : le meme jeu que sur l'etiquette
+  if(!s.showIcons)return [];
+  if(s.category==='bolts')return [ICON_DATA.drive[s.drive],ICON_DATA.head[s.head]].filter(Boolean);
+  const c=SINGLE_ICON_CATS[s.category];
+  const d=c?(ICON_DATA[c.iconSet]||{})[s[c.selectId]]:null;
+  return d?[d]:[];
+}
+function snapMeta(s){
+  const bits=[catName(s.category)];
+  if(s.showIcons){
+    if(s.category==='bolts')bits.push(optText('drive',s.drive)+' · '+optText('head',s.head));
+    else{const c=SINGLE_ICON_CATS[s.category];if(c)bits.push(optText(c.selectId,s[c.selectId]));}
+  } else bits.push('no icon');
+  const u=parseFloat(s.lwidth)||1;
+  bits.push(u+(u>1?' units':' unit'));
+  return bits.join(' · ');
+}
+function snapSize(s){           // emprise au sol, languettes comprises
+  const u=parseFloat(s.lwidth)||1;
+  return [(LABEL_TABLE[u]||LABEL_TABLE[1])+2*TAB_EXT, 11.5];
+}
+// Rangement en lignes, de l'avant vers l'arriere du plateau : chaque etiquette est posee a la
+// suite de la precedente et on passe a la ligne suivante quand la largeur restante ne suffit plus.
+function planPlate(entries){
+  const cells=[];
+  for(const e of (entries||CART)){const [w,h]=snapSize(e.snap);for(let i=0;i<e.qty;i++)cells.push({entry:e,w,h});}
+  let x=PLATE_MARGIN,y=PLATE_MARGIN,rowH=0,maxRight=PLATE_MARGIN;const placed=[];
+  for(const c of cells){
+    if(x>PLATE_MARGIN && x+c.w>BED[0]-PLATE_MARGIN){x=PLATE_MARGIN;y+=rowH+PLATE_GAP;rowH=0;}
+    placed.push({entry:c.entry,cx:x+c.w/2,cy:y+c.h/2});
+    x+=c.w+PLATE_GAP;rowH=Math.max(rowH,c.h);
+    if(x-PLATE_GAP>maxRight)maxRight=x-PLATE_GAP;
   }
+  // Le bloc obtenu est centre sur le plateau : une etiquette seule retombe pile au milieu,
+  // comme avant le plateau. Si le contenu deborde, on garde la marge d'origine (pas de decalage negatif).
+  const contentW=maxRight-PLATE_MARGIN, contentH=(y+rowH)-PLATE_MARGIN;
+  const dx=Math.max(0,(BED[0]-contentW)/2-PLATE_MARGIN), dy=Math.max(0,(BED[1]-contentH)/2-PLATE_MARGIN);
+  for(const p of placed){p.cx+=dx;p.cy+=dy;}
+  const used=y+rowH+PLATE_MARGIN;
+  return {placed,used,fits:used<=BED[1]};
+}
+function cartCount(){return CART.reduce((a,e)=>a+e.qty,0);}
+// Etiquette du plateau ouverte dans le formulaire. Tant qu'elle l'est, "Update label" ecrit
+// dedans et "Add to plate" devient "Add as new" (pour ne pas ecraser par megarde).
+let editing=null;
+function selectEntry(e){
+  editing=e;
+  if(e)applySnap(e.snap);          // le formulaire reprend exactement les reglages enregistres
+  syncActionButtons();
+  renderCart();
+}
+function syncActionButtons(){
+  const on=!!editing;
+  document.getElementById('updateBtn').style.display=on?'':'none';
+  document.getElementById('addBtn').classList.toggle('secondary',on);
+  document.getElementById('addLabel').textContent=on?'Add as new':'Add to plate';
+}
+function renderCart(){
+  const list=document.getElementById('cartList');
+  document.getElementById('cartGroup').style.display=CART.length?'':'none';
+  list.innerHTML='';
+  CART.forEach((e,i)=>{
+    const row=document.createElement('div');row.className='cart-item'+(e===editing?' sel':'');
+    row.title=e===editing?'Click to close':'Click to load this label into the form';
+    row.addEventListener('click',ev=>{
+      if(ev.target.closest('.qbtn,.cart-del'))return;      // quantite et suppression gardent leur role
+      selectEntry(e===editing?null:e);                     // re-cliquer referme
+    });
+    const th=document.createElement('div');th.className='cart-thumb';
+    th.innerHTML=snapIconDefs(e.snap).map(iconSVG).join('');   // svg generes a partir de nombres
+    const txt=document.createElement('div');txt.className='cart-txt';
+    const nm=document.createElement('div');nm.className='cart-name';
+    nm.textContent=(e.snap.text||'').trim()||'(no text)';          // textContent : jamais d'injection
+    const mt=document.createElement('div');mt.className='cart-meta';mt.textContent=snapMeta(e.snap);
+    txt.append(nm,mt);
+    const qty=document.createElement('div');qty.className='cart-qty';
+    const minus=document.createElement('button');minus.type='button';minus.className='qbtn';
+    minus.textContent='−';minus.title='One less';minus.disabled=e.qty<=1;
+    minus.addEventListener('click',()=>{if(e.qty>1){e.qty--;renderCart();}});
+    const n=document.createElement('span');n.className='cart-n';n.textContent=e.qty;
+    const plus=document.createElement('button');plus.type='button';plus.className='qbtn';
+    plus.textContent='+';plus.title='One more';
+    plus.addEventListener('click',()=>{e.qty++;renderCart();});
+    qty.append(minus,n,plus);
+    const del=document.createElement('button');del.type='button';del.className='cart-del';
+    del.textContent='×';del.title='Remove';
+    del.addEventListener('click',()=>{if(e===editing){editing=null;syncActionButtons();}
+      CART.splice(i,1);renderCart();});
+    row.append(th,txt,qty,del);
+    list.appendChild(row);
+  });
+  // Plateau vide : le bouton exporte l'etiquette en cours d'edition, comme avant le plateau.
+  const n=cartCount();
+  document.getElementById('dlLabel').textContent=n?('Download 3MF ('+n+')'):'Download 3MF';
+  const foot=document.getElementById('cartFoot');
+  if(!n){foot.textContent='';foot.classList.remove('warn');}
+  else{
+    const p=planPlate();
+    foot.classList.toggle('warn',!p.fits);
+    foot.textContent=p.fits
+      ? n+(n>1?' labels':' label')+' arranged on the plate · '+Math.round(p.used)+' of '+BED[1]+' mm used'
+      : n+' labels need '+Math.round(p.used)+' mm of depth — more than the '+BED[1]+' mm plate. The extra rows will sit past the back edge.';
+  }
+}
+document.getElementById('addBtn').addEventListener('click',()=>{
+  const snap=snapForm(),key=JSON.stringify(snap);
+  const same=CART.find(e=>e.key===key);
+  if(same){same.qty++;toast('Already on the plate — quantity is now '+same.qty);}
+  else{CART.push({key,snap,qty:1});toast('Added to the plate');}
+  editing=null;syncActionButtons();          // un ajout referme l'edition en cours
+  renderCart();
+});
+// Confirmation maison plutot que window.confirm : ce dernier est neutralise dans certains
+// contextes d'affichage (il rend false immediatement), et le bouton paraitrait mort.
+function askConfirm(text,onYes){
+  const m=document.getElementById('confirmModal');
+  const yes=document.getElementById('confirmYes'),no=document.getElementById('confirmNo');
+  document.getElementById('confirmText').textContent=text;
+  m.hidden=false;
+  const close=()=>{m.hidden=true;
+    yes.removeEventListener('click',ok);no.removeEventListener('click',close);
+    m.removeEventListener('mousedown',backdrop);document.removeEventListener('keydown',key);};
+  const ok=()=>{close();onYes();};
+  const backdrop=e=>{if(e.target===m)close();};      // clic hors de la carte = annuler
+  const key=e=>{if(e.key==='Escape')close();else if(e.key==='Enter')ok();};
+  yes.addEventListener('click',ok);no.addEventListener('click',close);
+  m.addEventListener('mousedown',backdrop);document.addEventListener('keydown',key);
+  yes.focus();
+}
+document.getElementById('clearBtn').addEventListener('click',()=>{
+  const n=cartCount();
+  if(!n)return;
+  // Le plateau n'est pas persiste : une fois vide, la liste n'est pas recuperable -> confirmation.
+  askConfirm(n+(n>1?' labels':' label')+' will be removed from the plate. This cannot be undone.',()=>{
+    CART.length=0;editing=null;syncActionButtons();renderCart();
+    toast('Plate cleared');
+  });
+});
+document.getElementById('updateBtn').addEventListener('click',()=>{
+  if(!editing)return;
+  const snap=snapForm();
+  editing.snap=snap;editing.key=JSON.stringify(snap);   // quantite et position dans la liste inchangees
+  toast('Label updated');
+  renderCart();
+});
+
+// ---------- 3MF export ----------
+const XML_ESC={'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'};
+function xa(s){return String(s).replace(/[&<>"]/g,c=>XML_ESC[c]);}   // valeur d'attribut XML
+function build3MF(){
+  const saved=snapForm();
+  // Plateau vide -> on exporte la seule etiquette en cours ; sinon tout le plateau.
+  const entries=CART.length?CART:[{key:'current',snap:saved,qty:1}];
+  const plan=planPlate(entries);
+  const ID='1 0 0 0 1 0 0 0 1 0 0 0';
+  const resObjs=[], objCfg=[], objIdOf=new Map();
+  let nextId=2;                       // 1 = basematerials
+  let anyColor=false;
+  for(const entry of entries){
+    applySnap(entry.snap);            // rejoue les reglages -> baseGeom + raised a jour
+    const eg=r=>tris(r.exportGeom||r.geom);      // exporte le monotrait, pas la police d'apercu
+    // Copie : les tableaux appartiennent aux geometries, qui seront remplacees au tour suivant.
+    const baseArr=new Float32Array(tris(baseGeom));
+    const textArr=concatF32(raised.filter(r=>r.kind!=='icon').map(eg).filter(a=>a.length));
+    const iconArr=concatF32(raised.filter(r=>r.kind==='icon').map(eg).filter(a=>a.length));
+    const baseId=nextId++;
+    resObjs.push('<object id="'+baseId+'" type="model" pid="1" pindex="0"><mesh>'+meshXML(baseArr)+'</mesh></object>');
+    let comps='<component objectid="'+baseId+'" transform="'+ID+'"/>';
+    let partsCfg='<part id="'+baseId+'" subtype="normal_part"><metadata key="name" value="Base"/><metadata key="extruder" value="1"/></part>';
+    let colored=0;
+    for(const [name,arr] of [['Text',textArr],['Icons',iconArr]]){
+      if(!arr.length)continue;
+      const id=nextId++; colored++; anyColor=true;
+      resObjs.push('<object id="'+id+'" type="model" pid="1" pindex="1"><mesh>'+meshXML(arr)+'</mesh></object>');
+      comps+='<component objectid="'+id+'" transform="'+ID+'"/>';
+      partsCfg+='<part id="'+id+'" subtype="normal_part"><metadata key="name" value="'+name+'"/><metadata key="extruder" value="2"/></part>';
+    }
+    // Sans relief l'etiquette est un simple maillage ; sinon un assemblage base + parts colorees.
+    let objId=baseId;
+    if(colored){objId=nextId++;
+      resObjs.push('<object id="'+objId+'" type="model"><components>'+comps+'</components></object>');}
+    const nm=(entry.snap.text||'').trim()||'Label';
+    objCfg.push('<object id="'+objId+'"><metadata key="name" value="'+xa(nm)+'"/><metadata key="extruder" value="1"/>'+
+      (colored?partsCfg:'')+'</object>');
+    objIdOf.set(entry,objId);
+  }
+  applySnap(saved);                   // l'apercu revient a l'etiquette en cours d'edition
+  // Un <item> par exemplaire : les copies partagent le meme objet, seule la position change.
+  // Dans Bambu l'origine est le coin avant-gauche du plateau et la geometrie est centree sur
+  // l'origine : chaque item porte donc la translation vers le centre de sa case.
+  const items=plan.placed.map(p=>'<item objectid="'+objIdOf.get(p.entry)+
+    '" transform="1 0 0 0 1 0 0 0 1 '+p.cx.toFixed(3)+' '+p.cy.toFixed(3)+' 0" printable="1"/>').join('');
+  const mats='<basematerials id="1"><base name="Base" displaycolor="'+hex8(COLOR_A)+'"/>'+
+    (anyColor?'<base name="Text" displaycolor="'+hex8(COLOR_B)+'"/>':'')+'</basematerials>';
+  const model='<?xml version="1.0" encoding="UTF-8"?>\n'+
+    '<model unit="millimeter" xml:lang="en-US" xmlns="http://schemas.microsoft.com/3dmanufacturing/core/2015/02" xmlns:BambuStudio="http://schemas.bambulab.com/package/2021">'+
+    '<metadata name="Application">'+BBL_GENERATOR+'</metadata>'+
+    '<metadata name="BambuStudio:3mfVersion">1</metadata>'+
+    '<resources>'+mats+resObjs.join('')+'</resources>'+
+    '<build>'+items+'</build></model>';
+  const modelCfg='<?xml version="1.0" encoding="UTF-8"?>\n<config>'+objCfg.join('')+'</config>';
   // Pas de project_settings.config : il ferait creer a Bambu un profil de projet qui remplace
   // celui de l'imprimante. Les couleurs restent portees par <basematerials> et l'affectation
   // des extrudeurs par model_settings.config.
@@ -1154,8 +1414,12 @@ function build3MF(){
   const zip=fflate.zipSync(files,{level:6});
   const blob=new Blob([zip],{type:'model/3mf'});
   const el=document.createElement('a');
-  const name=(document.getElementById('text').value||'label').replace(/[^\w\-×x]+/g,'_');
-  el.href=URL.createObjectURL(blob);el.download='label_'+name+'.3mf';el.click();URL.revokeObjectURL(el.href);
+  const n=plan.placed.length;
+  const one=(entries[0].snap.text||'label').replace(/[^\w\-×x]+/g,'_');
+  el.href=URL.createObjectURL(blob);
+  el.download=(n===1?'label_'+one:'labels_plate_'+n)+'.3mf';
+  el.click();URL.revokeObjectURL(el.href);
+  if(!plan.fits)toast('Exported — some rows sit past the back edge of the plate.');
 }
 document.getElementById('dl3mf').addEventListener('click',build3MF);
 
