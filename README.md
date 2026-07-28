@@ -1,6 +1,6 @@
 # Gridfinity Label Generator
 
-Design printable Gridfinity bin labels in the browser and export them as a ready-to-slice 3MF plate.
+Customizable Gridfinity Label
 
 **→ [moifort.github.io/label-generator](https://moifort.github.io/label-generator/)**
 
