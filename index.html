@@ -260,6 +260,36 @@ window.addEventListener("load",function(){
     </div>
 
     <input type="hidden" id="ltype" value="regular" />
+
+    <!-- La cote du plateau est portee par data-bed (ex. "350x320") : cette liste est la seule
+         chose a maintenir quand la gamme evolue, le JS n'a aucune table en double. -->
+    <div class="group">
+      <label>Printer</label>
+      <select id="printer">
+        <optgroup label="A series">
+          <option value="a1mini" data-bed="180x180">A1 mini — 180 × 180 mm</option>
+          <option value="a1" data-bed="256x256">A1 — 256 × 256 mm</option>
+          <option value="a2l" data-bed="330x320">A2L — 330 × 320 mm</option>
+        </optgroup>
+        <optgroup label="P series">
+          <option value="p1p" data-bed="256x256">P1P — 256 × 256 mm</option>
+          <option value="p1s" data-bed="256x256">P1S — 256 × 256 mm</option>
+          <option value="p2s" data-bed="256x256">P2S — 256 × 256 mm</option>
+        </optgroup>
+        <optgroup label="X series">
+          <option value="x1c" data-bed="256x256">X1 / X1 Carbon — 256 × 256 mm</option>
+          <option value="x1e" data-bed="256x256">X1E — 256 × 256 mm</option>
+          <option value="x2d" data-bed="256x256" selected>X2D — 256 × 256 mm</option>
+        </optgroup>
+        <optgroup label="H series">
+          <option value="h2d" data-bed="350x320">H2D — 350 × 320 mm</option>
+          <option value="h2s" data-bed="340x320">H2S — 340 × 320 mm</option>
+          <option value="h2c" data-bed="330x320">H2C — 330 × 320 mm</option>
+        </optgroup>
+      </select>
+      <div class="field-hint" style="margin-top:6px;">Sets the plate size used to arrange the labels.</div>
+    </div>
+
     <div class="row">
       <div class="group">
         <label class="lw-label">Width <span class="lw-val" id="lwidthVal">1 unit</span></label>
@@ -1317,7 +1347,16 @@ const CART_FIELDS=['lwidth','category','showIcons','drive','head',
 // Le libelle affiche est celui du bouton de categorie : une seule source de verite.
 function catName(v){const b=document.querySelector('#categoryToggle .toggle-opt[data-val="'+v+'"]');
   return b?b.textContent.trim():v;}
-const BED=[256,256];        // plateau Bambu 256x256
+// Cote du plateau de l'imprimante choisie, lue sur l'option selectionnee (data-bed="LxP").
+// Elle sert au rangement, au centrage et a l'avertissement de debordement : changer d'imprimante
+// suffit donc a reagencer tout le plateau, sans rien recalculer ailleurs.
+const printerSel=document.getElementById('printer');
+function readBed(){
+  const o=printerSel.selectedOptions[0];
+  return (o&&o.dataset.bed||'256x256').split('x').map(Number);
+}
+let BED=readBed();
+printerSel.addEventListener('change',()=>{BED=readBed();renderCart();});
 const PLATE_MARGIN=10, PLATE_GAP=4;
 
 function snapForm(){const s={};for(const id of CART_FIELDS){const el=document.getElementById(id);
