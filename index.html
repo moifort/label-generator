@@ -309,6 +309,25 @@ window.addEventListener("load",function(){
             <button type="button" class="lw-btn" id="lwPlus" aria-label="Wider">+</button>
           </div>
       </div>
+      <!-- Bins cloisonnes : l'etiquette garde sa longueur et se decoupe en N compartiments.
+           Les combinaisons possibles sont portees par DIVISIONS cote JS ; les boutons hors
+           combinaison passent en aria-disabled (wireToggle les ignore deja). -->
+      <div class="group">
+        <label>Compartments</label>
+        <div class="toggle multi" id="divToggle" role="group" aria-label="Compartments">
+          <span class="toggle-thumb" aria-hidden="true"></span>
+          <button type="button" class="toggle-opt active" data-val="1" title="One label, no divider">1</button>
+          <button type="button" class="toggle-opt" data-val="2" title="Split in two">2</button>
+          <button type="button" class="toggle-opt" data-val="3" title="Split in three">3</button>
+        </div>
+        <input type="hidden" id="divisions" value="1" />
+      </div>
+    </div>
+
+    <!-- Onglets de compartiment : les controles ci-dessous editent celui qui est selectionne. -->
+    <div class="group" id="zoneTabsGroup" style="display:none">
+      <label>Compartment</label>
+      <div class="toggle multi" id="zoneTabs" role="group" aria-label="Compartment"></div>
     </div>
 
     <div class="group">
@@ -556,7 +575,14 @@ const BOLT_D=5.5;                  // icon size: drive diameter == head height (
 // meme proportion : c'est le levier principal de nettete en FDM, ou tout detail plus fin que
 // la largeur de ligne (~0.4 mm) est comble par le slicer. 5.5 -> 6.5 fait +18% sur chaque trait.
 const ICON_H={1:6.5, 2:7.5, 3:8.0};
-function iconH(){const u=parseFloat(document.getElementById('lwidth').value)||1;return ICON_H[u]||ICON_H[1];}
+// Indexee sur la largeur REELLEMENT disponible, pas sur le format : un compartiment de 25.9 mm
+// (2 unites divisees en 3) doit prendre l'icone du format 1 unite, pas celle du format 2 unites.
+// Sans division zw vaut W et on retombe exactement sur ICON_H[format courant].
+function iconH(zw){
+  const w=(zw===undefined)?W:zw;
+  let u=1; for(const k of [3,2]) if(w>=LABEL_TABLE[k]){u=k;break;}
+  return ICON_H[u];
+}
 const gap1=1.0;                    // ecart entre vue de dessus et vue de cote (resserre pour gagner du padding en X)
 const gap2=1.5;                    // ecart entre vue de cote et texte
 const zone1W=BOLT_D;               // drive top view
@@ -1036,12 +1062,46 @@ function addGeom(g,kind,exportGeom){if(!g)return;const m=new THREE.Mesh(g,matB);
 const SY=0;  // y already centred
 function shiftGeom(g){g.translate(-W/2,SY,0);return g;}
 
+// ---------- separateur de compartiments ----------
+// Trait vertical en relief a chaque cloison. Largeur calee sur celle du texte monotrait : une
+// seule ligne de buse, donc un trait net sans remplissage. Passe par prismFromPolys comme le
+// reste du relief -> volume etanche, et son kind 'sep' l'envoie sur le filament 2 a l'export.
+const SEP_W=0.5, SEP_PAD_Y=1.4;
+function sepRing(x){
+  const hw=SEP_W/2, y=H/2-SEP_PAD_Y;
+  return [{x:x-hw,y:-y},{x:x+hw,y:-y},{x:x+hw,y:y},{x:x-hw,y:y}];
+}
+function addSeparator(x,relief,ink){
+  const c=sepRing(x);
+  if(ink){ink.push(c);return;}                                  // recessed : creuse au lieu d'ajouter
+  const ring=c.map(p=>[p.x,p.y]); ring.push([c[0].x,c[0].y]);
+  addGeom(shiftGeom(prismFromPolys([[ring]],relief)),'sep');
+}
+
 // ---------- label size ----------
 // Longueurs Gridfinity par unites Y (corps principal, hors languettes). Hauteur fixe 11.5.
 const LABEL_TABLE={1:35.8, 2:77.8, 3:119.8};
+// Bins cloisonnes : combinaisons format -> nombres de compartiments possibles. Seule table a
+// completer quand un nouveau bin cloisonne arrive (l'UI, le layout et le plateau en decoulent).
+const DIVISIONS={1:[1,2], 2:[1,3], 3:[1]};
+function divCount(){
+  const n=parseInt(document.getElementById('divisions').value,10)||1;
+  const u=parseFloat(document.getElementById('lwidth').value)||1;
+  return (DIVISIONS[u]||[1]).includes(n)?n:1;      // combinaison invalide -> non divise
+}
 function dims(){
   const u=parseFloat(document.getElementById('lwidth').value);
   return [LABEL_TABLE[u]||LABEL_TABLE[1], 11.5];
+}
+// Grise les nombres de compartiments impossibles pour le format courant, et retombe sur 1 si le
+// choix en cours vient d'etre invalide (ex. passage de 2 unites en 3 -> plus de tiers possibles).
+function syncDivOptions(){
+  const u=parseFloat(document.getElementById('lwidth').value)||1;
+  const allow=DIVISIONS[u]||[1], hid=document.getElementById('divisions');
+  for(const b of document.querySelectorAll('#divToggle .toggle-opt')){
+    b.setAttribute('aria-disabled',allow.includes(parseInt(b.dataset.val,10))?'false':'true');
+  }
+  if(!allow.includes(parseInt(hid.value,10))){hid.value='1';hid.dispatchEvent(new Event('change'));}
 }
 function applyTextPolicy(){
   // En Gridfinity (1/2/3 unites) le texte tient toujours : il est mis a l'echelle pour rentrer
@@ -1055,6 +1115,8 @@ function updateSize(){
   [W,H]=dims();
   buildBase();
   const lv=document.getElementById('lwidthVal'); if(lv){const u=parseFloat(document.getElementById('lwidth').value); lv.textContent=u+(u>1?' units':' unit');}
+  syncDivOptions();
+  refreshZones();
   applyTextPolicy();
   rebuild();
 }
@@ -1081,46 +1143,128 @@ const SINGLE_ICON_CATS={
   plugs:  {row:'plugRow',   selectId:'plug',   iconSet:'plug'},
   nails:  {row:'nailRow',   selectId:'nail',   iconSet:'nail'},
 };
-function rebuild(){
-  clearRaised();
-  const relief=parseFloat(document.getElementById('relief').value)||0.15;
-  const targetH=parseFloat(document.getElementById('textH').value)||4.2;
-  const showIcons=document.getElementById('showIcons').checked;
-  const category=document.getElementById('category').value;
-  document.getElementById('drive').disabled=!showIcons;
-  document.getElementById('head').disabled=!showIcons;
-  for(const c of Object.values(SINGLE_ICON_CATS))document.getElementById(c.selectId).disabled=!showIcons;
 
-  const _ti=document.getElementById('text');
-  const str=_ti.disabled?'':_ti.value;
+// Exemple de texte par categorie : sert de placeholder, et pre-remplit le champ tant que
+// l'utilisateur n'a rien saisi de personnel (on ne remplace qu'un champ vide ou un autre exemple).
+// Declares ici car zoneDefaults() et rebuild() les lisent, et rebuild() tourne des applyLayerHeight().
+let restoringSnap=false;                         // vrai pendant qu'un export rejoue des reglages
+const TEXT_SAMPLES={bolts:'M6x120',nuts:'M8 nyloc',wago:'221-413',magnets:'2x8mm',rack:'M6x20',plugs:'8x40mm',nails:'2.5x50'};
+const TEXT_SAMPLE_SET=new Set(Object.values(TEXT_SAMPLES));
+function applyTextSample(cat){
+  const ti=document.getElementById('text'), sample=TEXT_SAMPLES[cat];
+  ti.placeholder=sample||'';
+  if(!sample||restoringSnap)return;              // pendant un export, le texte enregistre fait foi
+  const v=ti.value.trim();
+  if(!v||TEXT_SAMPLE_SET.has(v))ti.value=sample;
+}
+
+// ---------- etat par compartiment ----------
+// Sur une etiquette cloisonnee, le formulaire n'edite plus qu'UN compartiment : ZONES porte
+// l'etat complet et reste la source de verite. Derive de SINGLE_ICON_CATS comme CART_FIELDS :
+// une nouvelle categorie est prise en compte sans rien recopier ici.
+const ZONE_FIELDS=['category','showIcons','drive','head',
+  ...Object.values(SINGLE_ICON_CATS).map(c=>c.selectId),'text'];
+function zoneFromForm(){const z={};for(const id of ZONE_FIELDS){const el=document.getElementById(id);
+  z[id]=el.type==='checkbox'?el.checked:el.value;}return z;}
+// Valeurs de depart du formulaire, capturees avant toute saisie : servent de base aux
+// compartiments crees ensuite (les <select> n'ont pas de defaultValue exploitable).
+const ZONE_BASE=zoneFromForm();
+function zoneDefaults(){const z={...ZONE_BASE};z.text=TEXT_SAMPLES[z.category]||'';return z;}
+const ZONES=[zoneFromForm()];
+let activeZone=0;
+function zoneToForm(z){
+  const prev=restoringSnap;  // applySnap l'a peut-etre deja pose : on rend la valeur, pas false
+  restoringSnap=true;        // le texte du compartiment fait foi, l'exemple de categorie ne l'ecrase pas
+  try{
+    for(const id of ZONE_FIELDS){const el=document.getElementById(id);
+      if(el.type==='checkbox')el.checked=!!z[id];else el.value=z[id];}
+    document.getElementById('category').dispatchEvent(new Event('change'));   // blocs + pickers
+    enforceCompat();
+  } finally { restoringSnap=prev; }
+}
+// Compartiments 1 a 3 = gauche a droite sur l'etiquette.
+const ZONE_NAMES={2:['Left','Right'],3:['Left','Center','Right']};
+function renderZoneTabs(){
+  const n=divCount(), tabs=document.getElementById('zoneTabs');
+  document.getElementById('zoneTabsGroup').style.display=n>1?'':'none';
+  if(n<2){tabs.innerHTML='';return;}
+  const names=ZONE_NAMES[n]||Array.from({length:n},(_,i)=>String(i+1));
+  tabs.innerHTML='<span class="toggle-thumb" aria-hidden="true"></span>'+
+    names.map((nm,i)=>'<button type="button" class="toggle-opt'+(i===activeZone?' active':'')+
+      '" data-zone="'+i+'">'+nm+'</button>').join('');
+  const thumb=tabs.querySelector('.toggle-thumb');
+  thumb.style.width='calc('+(100/n)+'% - 6px)';                       // idem wireToggle
+  thumb.style.transform=activeZone?'translateX(calc('+activeZone+' * (100% + 6px)))':'translateX(0)';
+}
+// Un seul ecouteur delegue, pose une fois : renderZoneTabs recree les boutons a volonte.
+document.getElementById('zoneTabs').addEventListener('click',e=>{
+  const b=e.target.closest('.toggle-opt'); if(!b)return;
+  const i=parseInt(b.dataset.zone,10);
+  if(i===activeZone||i>=divCount())return;
+  ZONES[activeZone]=zoneFromForm();       // on quitte le compartiment courant : on le memorise
+  activeZone=i;
+  renderZoneTabs();
+  zoneToForm(ZONES[i]);
+  rebuild();
+});
+// Aligne ZONES et l'onglet actif sur le nombre de compartiments courant. Le tableau n'est jamais
+// tronque : un aller-retour 2 -> 1 -> 2 compartiments retrouve la saisie precedente.
+function refreshZones(){
+  const n=divCount(), prev=activeZone;
+  while(ZONES.length<n)ZONES.push(zoneDefaults());
+  if(activeZone>=n)activeZone=n-1;
+  renderZoneTabs();
+  if(activeZone!==prev)zoneToForm(ZONES[activeZone]);
+}
+// Contenu d'un compartiment, pose dans la fenetre horizontale [x0, x0+zw] de l'espace layout.
+// isFirst/isLast disent si la fenetre touche un vrai bord de plaque : une frontiere interne se
+// contente de SEP_PAD, inutile d'y perdre la marge de bord complete. Le trait est a cheval sur la
+// frontiere, d'ou le demi SEP_W : SEP_PAD est alors un vrai vide entre le trait et le contenu.
+// ink != null -> mode recessed : on accumule les contours au lieu d'ajouter des volumes.
+const SEP_PAD=1.1+SEP_W/2;
+function zoneContent(z,x0,zw,relief,targetH,recessed,ink,isFirst,isLast){
+  const showIcons=!!z.showIcons, category=z.category;
+  const str=z.text||'';
   const hasText=!!(font&&str.trim());
-  const recessed=(document.getElementById('relmode')||{}).value==='recessed';
+
+  const MARGIN_TIGHT=1.0;   // marge incompressible : le texte ne mange plus le padding en X
+  const pad=((isFirst?mL:SEP_PAD)+(isLast?mR:SEP_PAD))*MARGIN_TIGHT;
 
   // figure out the icon block (icons + internal gaps) for the current mode
-  const ih=iconH();               // hauteur d'icone du format courant
+  const ih=iconH(zw);             // hauteur d'icone de la place disponible
   let iconsW=0, mode='none', driveDef=null, headDef=null, soloDef=null, soloRec=null, boltD=ih, gapI=gap1;
-  if(showIcons && category==='bolts'){
-    driveDef=ICON_DATA.drive[document.getElementById('drive').value];
-    headDef =ICON_DATA.head[document.getElementById('head').value];
+  // Compartiment etroit : empreinte + tete + texte ne tiennent pas. Plutot que de reduire le texte
+  // a rien, on abandonne la vue de cote et on garde l'empreinte seule, carree et donc lisible.
+  // Le seuil (55% de la place utile) est au-dessus du naturel d'une etiquette 1 unite (47%) :
+  // une etiquette non cloisonnee garde exactement le rendu qu'elle avait.
+  let driveOnly=false;
+  if(showIcons && category==='bolts' && hasText){
+    const hd=ICON_DATA.head[z.head];
+    driveOnly = ih+gap1+hd.w*ih/hd.h > 0.55*(zw-pad);
+  }
+  if(showIcons && category==='bolts' && !driveOnly){
+    driveDef=ICON_DATA.drive[z.drive];
+    headDef =ICON_DATA.head[z.head];
     const headWfull=headDef.w*ih/headDef.h;
     {   // le bloc d'icones garde son ecart normal ; il ne se resserre/retrecit que si la place manque
       const margin=0.9;
-      if(ih+gap1+headWfull > W-2*margin){
+      if(ih+gap1+headWfull > zw-2*margin){
         const gTight=0.9, natural=ih+gTight+headWfull;
-        const sc=Math.min(1,(W-2*margin)/natural); boltD=ih*sc; gapI=gTight*sc;
+        const sc=Math.min(1,(zw-2*margin)/natural); boltD=ih*sc; gapI=gTight*sc;
       }
     }
     iconsW=boltD+gapI+headDef.w*boltD/headDef.h; mode='bolts';
-  } else if(showIcons && SINGLE_ICON_CATS[category]){
-    // ecrous, connecteurs, aimants, kit rack : une seule icone, centree dans le bloc
-    const c=SINGLE_ICON_CATS[category], key=document.getElementById(c.selectId).value;
-    soloDef=(ICON_DATA[c.iconSet]||{})[key];
-    soloRec=(recessed && c.iconSet && ICON_DATA_REC[c.iconSet]) ? ICON_DATA_REC[c.iconSet][key] : null;
+  } else if(showIcons && (driveOnly || SINGLE_ICON_CATS[category])){
+    // ecrous, connecteurs, aimants, kit rack (ou empreinte seule) : une icone, centree dans le bloc
+    const c=SINGLE_ICON_CATS[category];
+    const set=driveOnly?'drive':c.iconSet, key=driveOnly?z.drive:z[c.selectId];
+    soloDef=(ICON_DATA[set]||{})[key];
+    soloRec=(recessed && set && ICON_DATA_REC[set]) ? ICON_DATA_REC[set][key] : null;
     const d=soloRec||soloDef;
     if(d){
       iconsW=d.w*ih/d.h;
       // garde-fou : une icone tres allongee ne doit pas manger la place du texte
-      const maxW=W*0.34;
+      const maxW=zw*0.34;
       if(iconsW>maxW){ boltD=ih*maxW/iconsW; iconsW=maxW; } else boltD=ih;
       mode='solo';
     }
@@ -1132,35 +1276,19 @@ function rebuild(){
   // the group is centred, so margins stay >= mL/mR until the content fills the budget. Budget the
   // text against ~60% margins so that once the text would need scaling, the gaps tighten to ~40%
   // smaller (2.0 -> 1.2 mm) first, giving more room before/instead of shrinking the text.
-  const MARGIN_TIGHT=1.0;   // marge incompressible : le texte ne mange plus le padding en X
-  const maxTextW=(W-(mL+mR)*MARGIN_TIGHT)-iconsW-lead;
+  const maxTextW=(zw-pad)-iconsW-lead;
   const tw=hasText?measureText(str,targetH,Math.max(1,maxTextW)):0;   // layout pilote par la police pleine (apercu)
   const groupW=iconsW+(hasText?lead+tw:0);
-  const gL=(W-groupW)/2;                       // group left edge -> equal margins both sides
+  const gL=x0+(zw-groupW)/2;                   // group left edge -> equal margins both sides
 
   const txStart=gL+(iconsW>0?iconsW+lead:0);
 
   if(recessed){
-    // Recessed: one full-label slab (filament 2) with the text+icons punched through, so the
-    // base colour shows through the gaps. Built as a true polygon boolean (label MINUS ink) so
-    // overlapping/crossing ink contours (e.g. wood-screw thread strokes) are unioned correctly;
-    // letter counters and icon centres survive as solid islands. (Even-odd hole-cutting can't do
-    // overlapping holes, which fragmented the wood-screw icons.)
-    const ink=[];
     if(mode==='bolts'){ ink.push(...iconContours(driveDef,gL+boltD/2,'center',boltD));
-      const headRec=(ICON_DATA_REC.head||{})[document.getElementById('head').value];   // recessed art if provided
+      const headRec=(ICON_DATA_REC.head||{})[z.head];   // recessed art if provided
       ink.push(...iconContours(headRec||headDef,gL+boltD+gapI,'left',boltD)); }
     else if(mode==='solo'){ ink.push(...iconContours(soloRec||soloDef,gL+iconsW/2,'center',boltD)); }
     if(hasText){ const tc=textContours(str,targetH,txStart,tw,'left'); if(tc)ink.push(...tc); }
-    for(const c of ink)for(const p of c)p.x-=W/2;          // layout space -> centred space
-    const op=baseShape().getPoints(96);                    // label outline (centred)
-    const labelRing=op.map(p=>[p.x,p.y]); labelRing.push([op[0].x,op[0].y]);
-    let result=[[labelRing]];
-    if(ink.length && typeof polygonClipping!=='undefined'){
-      try{ const r=polygonClipping.difference([labelRing], contoursToPolys(ink)); if(r&&r.length)result=r; }
-      catch(err){ console.warn('recess boolean failed, using solid slab',err); }
-    }
-    addGeom(prismFromPolys(result,relief));                // watertight manual prism; already centred
   } else {
     if(mode==='bolts'){
       addGeom(shiftGeom(iconGeom(driveDef, gL+boltD/2,   relief,'center',boltD)),'icon');
@@ -1175,6 +1303,42 @@ function rebuild(){
       else if(tgExp)addGeom(shiftGeom(tgExp),'text');
     }
   }
+}
+function rebuild(){
+  // Le formulaire edite le compartiment actif : on le memorise avant tout, ainsi aucun ecouteur
+  // n'a a le faire et aucun controle ne peut etre oublie.
+  if(!restoringSnap)ZONES[activeZone]=zoneFromForm();
+  clearRaised();
+  const relief=parseFloat(document.getElementById('relief').value)||0.15;
+  const targetH=parseFloat(document.getElementById('textH').value)||4.2;
+  const showIcons=document.getElementById('showIcons').checked;
+  document.getElementById('drive').disabled=!showIcons;
+  document.getElementById('head').disabled=!showIcons;
+  for(const c of Object.values(SINGLE_ICON_CATS))document.getElementById(c.selectId).disabled=!showIcons;
+  const recessed=(document.getElementById('relmode')||{}).value==='recessed';
+
+  const N=divCount(), zw=W/N;
+  while(ZONES.length<N)ZONES.push(zoneDefaults());
+  // Recessed: one full-label slab (filament 2) with the text+icons punched through, so the
+  // base colour shows through the gaps. Built as a true polygon boolean (label MINUS ink) so
+  // overlapping/crossing ink contours (e.g. wood-screw thread strokes) are unioned correctly;
+  // letter counters and icon centres survive as solid islands. (Even-odd hole-cutting can't do
+  // overlapping holes, which fragmented the wood-screw icons.) L'encre de TOUS les compartiments
+  // est accumulee d'abord : le booleen ne doit etre fait qu'une fois, sur la plaque entiere.
+  const ink=recessed?[]:null;
+  for(let i=0;i<N;i++)zoneContent(ZONES[i],i*zw,zw,relief,targetH,recessed,ink,i===0,i===N-1);
+  for(let i=1;i<N;i++)addSeparator(i*zw,relief,ink);
+  if(recessed){
+    for(const c of ink)for(const p of c)p.x-=W/2;          // layout space -> centred space
+    const op=baseShape().getPoints(96);                    // label outline (centred)
+    const labelRing=op.map(p=>[p.x,p.y]); labelRing.push([op[0].x,op[0].y]);
+    let result=[[labelRing]];
+    if(ink.length && typeof polygonClipping!=='undefined'){
+      try{ const r=polygonClipping.difference([labelRing], contoursToPolys(ink)); if(r&&r.length)result=r; }
+      catch(err){ console.warn('recess boolean failed, using solid slab',err); }
+    }
+    addGeom(prismFromPolys(result,relief));                // watertight manual prism; already centred
+  }
   if(typeof syncPickers==='function')syncPickers();
 }
 
@@ -1187,18 +1351,6 @@ document.getElementById('baseT').addEventListener('input',()=>{const v=parseFloa
 document.getElementById('drive').addEventListener('input',()=>{enforceCompat();rebuild();});
 document.getElementById('showIcons').addEventListener('change',()=>{applyTextPolicy();rebuild();});
 for(const c of Object.values(SINGLE_ICON_CATS))document.getElementById(c.selectId).addEventListener('change',rebuild);
-// Exemple de texte par categorie : sert de placeholder, et pre-remplit le champ tant que
-// l'utilisateur n'a rien saisi de personnel (on ne remplace qu'un champ vide ou un autre exemple).
-let restoringSnap=false;                         // vrai pendant qu'un export rejoue des reglages
-const TEXT_SAMPLES={bolts:'M6x120',nuts:'M8 nyloc',wago:'221-413',magnets:'2x8mm',rack:'M6x20',plugs:'8x40mm',nails:'2.5x50'};
-const TEXT_SAMPLE_SET=new Set(Object.values(TEXT_SAMPLES));
-function applyTextSample(cat){
-  const ti=document.getElementById('text'), sample=TEXT_SAMPLES[cat];
-  ti.placeholder=sample||'';
-  if(!sample||restoringSnap)return;              // pendant un export, le texte enregistre fait foi
-  const v=ti.value.trim();
-  if(!v||TEXT_SAMPLE_SET.has(v))ti.value=sample;
-}
 document.getElementById('category').addEventListener('change',()=>{
   const cat=document.getElementById('category').value;
   document.getElementById('boltRow').style.display=cat==='bolts'?'':'none';
@@ -1209,6 +1361,7 @@ document.getElementById('category').addEventListener('change',()=>{
 });
 document.getElementById('ltype').addEventListener('change',updateSize);
 document.getElementById('lwidth').addEventListener('input',updateSize);
+document.getElementById('divisions').addEventListener('change',()=>{refreshZones();rebuild();});
 (function(){function nudge(d){const r=document.getElementById('lwidth');let v=(parseFloat(r.value)||1)+d;v=Math.max(1,Math.min(3,Math.round(v)));r.value=v;updateSize();}
 document.getElementById('lwMinus').addEventListener('click',()=>nudge(-1));
 document.getElementById('lwPlus').addEventListener('click',()=>nudge(1));})();
@@ -1250,6 +1403,8 @@ document.getElementById('layerH').addEventListener('change',applyLayerHeight);
 applyLayerHeight();
 
 wireToggle('categoryToggle','category');
+wireToggle('divToggle','divisions');
+syncDivOptions();
 applyTextSample(document.getElementById('category').value);   // placeholder de depart
 document.getElementById('relmode').addEventListener('change',rebuild);
 
@@ -1350,10 +1505,9 @@ function meshXML(arr){
 // elle est regeneree a l'export en rejouant les reglages dans le formulaire, qui reste la
 // source de verite unique (meme chemin de code que l'apercu -> aucune divergence possible).
 const CART=[];
-// Derives de SINGLE_ICON_CATS : une nouvelle categorie est prise en compte sans rien recopier ici
-// (un selecteur oublie dans CART_FIELDS ne serait pas enregistre dans le plateau, en silence).
-const CART_FIELDS=['lwidth','category','showIcons','drive','head',
-  ...Object.values(SINGLE_ICON_CATS).map(c=>c.selectId),'text','textH'];
+// Reglages valables pour la plaque entiere. Tout ce qui est propre a un compartiment vit dans
+// ZONE_FIELDS et part dans snap.zones (un champ oublie de part et d'autre serait perdu en silence).
+const CART_FIELDS=['lwidth','divisions','textH'];
 // Le libelle affiche est celui du bouton de categorie : une seule source de verite.
 function catName(v){const b=document.querySelector('#categoryToggle .toggle-opt[data-val="'+v+'"]');
   return b?b.textContent.trim():v;}
@@ -1369,14 +1523,23 @@ let BED=readBed();
 printerSel.addEventListener('change',()=>{BED=readBed();renderCart();});
 const PLATE_MARGIN=10, PLATE_GAP=4;
 
-function snapForm(){const s={};for(const id of CART_FIELDS){const el=document.getElementById(id);
-  s[id]=el.type==='checkbox'?el.checked:el.value;}return s;}
+function snapForm(){
+  ZONES[activeZone]=zoneFromForm();               // le compartiment ouvert peut ne pas etre memorise
+  const s={};for(const id of CART_FIELDS){const el=document.getElementById(id);
+    s[id]=el.type==='checkbox'?el.checked:el.value;}
+  s.zones=ZONES.slice(0,divCount()).map(z=>({...z}));
+  return s;
+}
 function applySnap(s){
   restoringSnap=true;      // le texte enregistre ne doit pas etre ecrase par l'exemple de categorie
   try{
     for(const id of CART_FIELDS){const el=document.getElementById(id);
       if(el.type==='checkbox')el.checked=!!s[id];else el.value=s[id];}
-    document.getElementById('category').dispatchEvent(new Event('change'));   // blocs + pickers
+    ZONES.length=0; for(const z of s.zones)ZONES.push({...z});
+    activeZone=0;
+    syncDivOptions();
+    document.getElementById('divisions').dispatchEvent(new Event('change'));   // curseur du toggle + onglets
+    zoneToForm(ZONES[0]);                                                     // blocs + pickers
     enforceCompat();
     updateSize();                                                            // W/H + base + rebuild
   } finally { restoringSnap=false; }
@@ -1385,23 +1548,36 @@ function optText(selectId,value){
   const o=document.getElementById(selectId).querySelector('option[value="'+value+'"]');
   return o?o.textContent.trim():value;
 }
-function snapIconDefs(s){       // icones de la vignette : le meme jeu que sur l'etiquette
-  if(!s.showIcons)return [];
-  if(s.category==='bolts')return [ICON_DATA.drive[s.drive],ICON_DATA.head[s.head]].filter(Boolean);
-  const c=SINGLE_ICON_CATS[s.category];
-  const d=c?(ICON_DATA[c.iconSet]||{})[s[c.selectId]]:null;
+function zoneIconDefs(z){
+  if(!z.showIcons)return [];
+  if(z.category==='bolts')return [ICON_DATA.drive[z.drive],ICON_DATA.head[z.head]].filter(Boolean);
+  const c=SINGLE_ICON_CATS[z.category];
+  const d=c?(ICON_DATA[c.iconSet]||{})[z[c.selectId]]:null;
   return d?[d]:[];
 }
-function snapMeta(s){
-  const bits=[catName(s.category)];
-  if(s.showIcons){
-    if(s.category==='bolts')bits.push(optText('drive',s.drive)+' · '+optText('head',s.head));
-    else{const c=SINGLE_ICON_CATS[s.category];if(c)bits.push(optText(c.selectId,s[c.selectId]));}
+// Icones de la vignette : le meme jeu que sur l'etiquette, tous compartiments confondus.
+// Plafonne a 4 : au-dela la vignette deborderait sans rien apprendre de plus.
+function snapIconDefs(s){return s.zones.flatMap(zoneIconDefs).slice(0,4);}
+function zoneMeta(z){
+  const bits=[catName(z.category)];
+  if(z.showIcons){
+    if(z.category==='bolts')bits.push(optText('drive',z.drive)+' · '+optText('head',z.head));
+    else{const c=SINGLE_ICON_CATS[z.category];if(c)bits.push(optText(c.selectId,z[c.selectId]));}
   } else bits.push('no icon');
-  const u=parseFloat(s.lwidth)||1;
-  bits.push(u+(u>1?' units':' unit'));
   return bits.join(' · ');
 }
+function snapMeta(s){
+  // Cloisonnee : le detail d'icone de chaque compartiment ne tiendrait pas sur la vignette,
+  // les categories suffisent a reconnaitre l'etiquette. Non cloisonnee : le detail complet.
+  const bits=[s.zones.length>1 ? s.zones.map(z=>catName(z.category)).join(' | ')
+                               : zoneMeta(s.zones[0])];
+  const u=parseFloat(s.lwidth)||1;
+  bits.push(u+(u>1?' units':' unit'));
+  if(s.zones.length>1)bits.push(s.zones.length+' compartments');
+  return bits.join(' · ');
+}
+// Texte de la vignette : les compartiments dans l'ordre, separes comme sur l'etiquette.
+function snapText(s){return s.zones.map(z=>(z.text||'').trim()).filter(Boolean).join(' | ');}
 function snapSize(s){           // emprise au sol, languettes comprises
   const u=parseFloat(s.lwidth)||1;
   return [(LABEL_TABLE[u]||LABEL_TABLE[1])+2*TAB_EXT, 11.5];
@@ -1457,7 +1633,7 @@ function renderCart(){
     th.innerHTML=snapIconDefs(e.snap).map(iconSVG).join('');   // svg generes a partir de nombres
     const txt=document.createElement('div');txt.className='cart-txt';
     const nm=document.createElement('div');nm.className='cart-name';
-    nm.textContent=(e.snap.text||'').trim()||'(no text)';          // textContent : jamais d'injection
+    nm.textContent=snapText(e.snap)||'(no text)';                  // textContent : jamais d'injection
     const mt=document.createElement('div');mt.className='cart-meta';mt.textContent=snapMeta(e.snap);
     txt.append(nm,mt);
     const qty=document.createElement('div');qty.className='cart-qty';
@@ -1566,7 +1742,7 @@ function build3MF(){
     let objId=baseId;
     if(colored){objId=nextId++;
       resObjs.push('<object id="'+objId+'" type="model"><components>'+comps+'</components></object>');}
-    const nm=(entry.snap.text||'').trim()||'Label';
+    const nm=snapText(entry.snap)||'Label';
     objCfg.push('<object id="'+objId+'"><metadata key="name" value="'+xa(nm)+'"/><metadata key="extruder" value="1"/>'+
       (colored?partsCfg:'')+'</object>');
     objIdOf.set(entry,objId);
@@ -1605,7 +1781,7 @@ function build3MF(){
   const blob=new Blob([zip],{type:'model/3mf'});
   const el=document.createElement('a');
   const n=plan.placed.length;
-  const one=(entries[0].snap.text||'label').replace(/[^\w\-×x]+/g,'_');
+  const one=(snapText(entries[0].snap)||'label').replace(/[^\w\-×x]+/g,'_');
   el.href=URL.createObjectURL(blob);
   el.download=(n===1?'label_'+one:'labels_plate_'+n)+'.3mf';
   el.click();URL.revokeObjectURL(el.href);
