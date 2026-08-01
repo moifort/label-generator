@@ -1,6 +1,6 @@
 # [Gridfinity Label Generator](https://moifort.github.io/label-generator/)
 
-Labels clip into the rails of standard Gridfinity bins, and are designed for the [Ultimate Gridfinity Bins Collection](https://makerworld.com/fr/models/47599-ultimate-gridfinity-bins-collection-parametric#profileId-49320).
+Labels clip into the rails of standard Gridfinity bins, and are designed for [Gridfinity Bin with printable label](https://www.printables.com/model/592545-gridfinity-bin-with-printable-label-by-pred-parame).
 
 ![Gridfinity Label Generator](assets/screenshot.png)
 
