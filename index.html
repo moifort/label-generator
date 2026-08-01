@@ -284,12 +284,8 @@ window.addEventListener("load",function(){
       </div>
       <div class="grid gap-2 flex-1">
         <label class="label" for="layerH">Layer height (mm)</label>
-        <select id="layerH">
-          <option value="0.08" selected>0.08 — sharpest</option>
-          <option value="0.12">0.12</option>
-          <option value="0.16">0.16</option>
-          <option value="0.2">0.20</option>
-        </select>
+        <!-- Options remplies par syncLayerOptions() : elles dependent de la buse choisie. -->
+        <select id="layerH"></select>
       </div>
       <input type="hidden" id="relmode" value="raised" />
     </div>
@@ -383,7 +379,8 @@ function updateNozzleHint(){
 function onNozzleChange(){
   NOZZLE=readNozzle();
   updateNozzleHint();
-  rebuild();                    // le trait de texte et le separateur changent de largeur
+  syncLayerOptions();           // la 0.2 ne monte pas a 0.20 mm
+  applyLayerHeight();           // recale base et relief sur la couche retenue, puis rebuild
 }
 nozzleSel.addEventListener('change',onNozzleChange);
 updateNozzleHint();
@@ -1235,6 +1232,23 @@ function wireToggle(tgId,hidId){
 // couleur a l'autre ne coincide pas avec une frontiere de couche : le slicer arrondit, la
 // couche de transition part entiere dans une seule couleur et les bords du relief s'emoussent.
 const BASE_TARGET=0.64, RELIEF_TARGET=0.32;   // valeurs de reference, calibrees pour 0.08
+// La buse borne les hauteurs praticables : une 0.2 ne monte pas a 0.20 mm. On repeuple donc le
+// select natif, qui reste la source de verite, puis on demande au composant monte au-dessus de
+// se reconstruire dessus (refreshItems). Appele avant mountFormControls() : sinon le composant
+// se batirait sur un select encore vide.
+const LAYER_DEFAULT='0.08';
+function syncLayerOptions(){
+  const sel=document.getElementById('layerH'), keep=sel.value;
+  const vals=NOZZLE.layers.map(n=>n.toFixed(2));
+  sel.textContent='';
+  for(const v of vals){
+    const o=document.createElement('option');
+    o.value=v; o.textContent=v+(v===vals[0]?' — sharpest':'');   // la plus fine de la liste
+    sel.appendChild(o);
+  }
+  sel.value=vals.includes(keep)?keep:LAYER_DEFAULT;
+  if(sel.refreshItems)sel.refreshItems();
+}
 function applyLayerHeight(){
   const lh=parseFloat(document.getElementById('layerH').value)||0.08;
   const nBase=Math.max(4,Math.round(BASE_TARGET/lh)), nRel=Math.max(2,Math.round(RELIEF_TARGET/lh));
@@ -1245,6 +1259,7 @@ function applyLayerHeight(){
   rf.dispatchEvent(new Event('input'));      // rebuild
 }
 document.getElementById('layerH').addEventListener('change',applyLayerHeight);
+syncLayerOptions();
 applyLayerHeight();
 
 wireToggle('categoryToggle','category');
