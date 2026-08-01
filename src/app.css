@@ -146,24 +146,21 @@
   .select-item-check { @apply absolute right-2 flex size-3.5 items-center justify-center; }
   .select-label { @apply px-2 py-1.5 text-xs text-muted-foreground; }
 
-  /* Tabs — TabsList et TabsTrigger ; l'etat actif est porte par .active plutot que
-     par le data-state de Radix. */
-  .tabs-list {
-    @apply inline-flex h-9 w-full items-center justify-center rounded-lg bg-muted
-           p-[3px] text-muted-foreground;
+  /* Button Group — buttonGroupVariants, orientation horizontale : les boutons sont
+     accoles, seuls les coins exterieurs restent arrondis et les bordures internes
+     fusionnent. Les segments sont de simples .button .button-outline. */
+  .button-group {
+    @apply flex w-fit items-stretch
+           [&>*:not(:first-child)]:rounded-l-none [&>*:not(:first-child)]:border-l-0
+           [&>*:not(:last-child)]:rounded-r-none
+           [&>*]:focus-visible:relative [&>*]:focus-visible:z-10;
   }
-  .tabs-trigger {
-    @apply relative inline-flex h-[calc(100%-1px)] flex-1 items-center justify-center
-           gap-1.5 rounded-md border border-transparent px-2 py-1 text-sm font-medium
-           whitespace-nowrap text-muted-foreground transition-all
-           hover:text-foreground focus-visible:border-ring focus-visible:ring-[3px]
-           focus-visible:ring-ring/50 focus-visible:outline-1 focus-visible:outline-ring
-           disabled:pointer-events-none disabled:opacity-50;
+  /* Segment retenu. Pas d'anneau ici, contrairement aux boutons d'icones : il
+     debordrait sur les segments voisins et casserait l'accolement. */
+  .button-group > .active {
+    @apply bg-accent text-accent-foreground border-ring;
   }
-  .tabs-trigger.active {
-    @apply border-input bg-input/30 text-foreground shadow-sm;
-  }
-  .tabs-trigger[aria-disabled="true"] { @apply pointer-events-none opacity-50; }
+  .button-group > [aria-disabled="true"] { @apply pointer-events-none opacity-50; }
 
   /* Badge */
   .badge {
@@ -244,14 +241,28 @@
 
 #cv { display: block; width: 100%; height: 100%; }
 
-/* Quadrillage derriere la preview, derive de la couleur de texte du thème. */
-.blueprint-grid {
-  --grid-line: color-mix(in oklab, var(--foreground) 7%, transparent);
+/* Tapis de decoupe auto-cicatrisant, sur lequel l'etiquette est posee : vert sature et
+   quadrillage blanc, avec des lignes plus marquees tous les 5 pas.
+   Le pas est decoratif, il ne correspond pas a l'echelle du modele 3D. */
+.cutting-mat {
+  --mat-step: 26px;
+  --mat-fine: rgb(255 255 255 / 0.12);
+  --mat-strong: rgb(255 255 255 / 0.30);
+  background-color: #10775a;
   background-image:
-    linear-gradient(var(--grid-line) 1px, transparent 1px),
-    linear-gradient(90deg, var(--grid-line) 1px, transparent 1px);
-  background-size: 22px 22px;
-  background-position: center top;
+    /* vignettage : le tapis s'assombrit vers les bords */
+    radial-gradient(130% 100% at 50% 40%, transparent 45%, rgb(0 0 0 / 0.35) 100%),
+    linear-gradient(var(--mat-strong) 1px, transparent 1px),
+    linear-gradient(90deg, var(--mat-strong) 1px, transparent 1px),
+    linear-gradient(var(--mat-fine) 1px, transparent 1px),
+    linear-gradient(90deg, var(--mat-fine) 1px, transparent 1px);
+  background-size:
+    100% 100%,
+    calc(var(--mat-step) * 5) calc(var(--mat-step) * 5),
+    calc(var(--mat-step) * 5) calc(var(--mat-step) * 5),
+    var(--mat-step) var(--mat-step),
+    var(--mat-step) var(--mat-step);
+  background-position: center;
 }
 
 /* Les SVG d'icones sont generes par iconSVG() sans classe : leur dimensionnement se
