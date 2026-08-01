@@ -1,24 +1,257 @@
-/* Source du CSS : Tailwind + daisyUI, compile puis inline dans index.html.
-   Regenerer avec `npm run css` apres toute modification du markup — Tailwind ne
-   garde que les classes qu'il trouve dans index.html, une classe ajoutee au
-   markup sans rebuild n'aura aucun style. */
+/* Source du CSS : Tailwind 4 + le systeme de design shadcn/ui, compile puis inline
+   dans index.html par `npm run css`. Tailwind ne garde que les classes qu'il trouve
+   dans le markup : une classe ajoutee sans rebuild n'aura aucun style.
+
+   shadcn/ui se distribue en composants React (Radix + Tailwind) et ce projet est du
+   HTML/JS vanilla en un seul fichier. On reprend donc ses tokens et ses chaines de
+   classes telles quelles — recopiees depuis le registry officiel — projetees sur des
+   classes de composants utilisables en HTML nu. L'apparence est celle de shadcn ;
+   les primitives Radix, elles, sont remplacees par leurs equivalents natifs
+   (<dialog>, <select>, <input type=range>), ce qui demande le pont ecrit plus bas. */
 @import "tailwindcss" source(none);
 @source "../dist/scan.html";
 
-/* Couleurs par defaut de daisyUI : thème "light", et "dark" quand le systeme le demande.
-   Aucun thème maison, les composants portent leur propre identite. */
-@plugin "daisyui";
+/* ---- tokens du thème shadcn ---------------------------------------------- */
+/* Thème sombre force : les valeurs du bloc .dark de shadcn sont posees directement
+   sur :root, la variante clair n'est pas compilee. */
+:root {
+  color-scheme: dark;
+  --radius: 0.625rem;
+  --background: oklch(0.145 0 0);
+  --foreground: oklch(0.985 0 0);
+  --card: oklch(0.205 0 0);
+  --card-foreground: oklch(0.985 0 0);
+  --popover: oklch(0.205 0 0);
+  --popover-foreground: oklch(0.985 0 0);
+  --primary: oklch(0.922 0 0);
+  --primary-foreground: oklch(0.205 0 0);
+  --secondary: oklch(0.269 0 0);
+  --secondary-foreground: oklch(0.985 0 0);
+  --muted: oklch(0.269 0 0);
+  --muted-foreground: oklch(0.708 0 0);
+  --accent: oklch(0.269 0 0);
+  --accent-foreground: oklch(0.985 0 0);
+  --destructive: oklch(0.704 0.191 22.216);
+  --border: oklch(1 0 0 / 10%);
+  --input: oklch(1 0 0 / 15%);
+  --ring: oklch(0.556 0 0);
+}
 
-/* ---- le peu qui ne se dit pas en composants ----------------------------- */
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+}
 
-/* Preview 3D : le canvas remplit son cadre, le panneau de controles remonte
-   par-dessus de 16px pour masquer la couture. */
+@layer base {
+  * { @apply border-border outline-ring/50; }
+  body { @apply bg-background text-foreground; }
+}
+
+/* ---- composants ---------------------------------------------------------- */
+@layer components {
+
+  /* Button — base et variantes reprises du registry shadcn. */
+  .button {
+    @apply inline-flex shrink-0 items-center justify-center gap-2 rounded-md text-sm
+           font-medium whitespace-nowrap transition-all outline-none
+           focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50
+           disabled:pointer-events-none disabled:opacity-50
+           [&_svg]:pointer-events-none [&_svg]:shrink-0
+           [&_svg:not([class*='size-'])]:size-4
+           h-9 px-4 py-2 has-[>svg]:px-3;
+    @apply bg-primary text-primary-foreground hover:bg-primary/90;
+  }
+  .button-destructive {
+    @apply bg-destructive/60 text-white hover:bg-destructive/90
+           focus-visible:ring-destructive/40;
+  }
+  .button-outline {
+    @apply border border-input bg-input/30 text-foreground shadow-xs
+           hover:bg-input/50 hover:text-accent-foreground;
+  }
+  .button-secondary { @apply bg-secondary text-secondary-foreground hover:bg-secondary/80; }
+  .button-ghost {
+    @apply bg-transparent text-foreground hover:bg-accent/50 hover:text-accent-foreground;
+  }
+  /* Etat retenu d'un bouton d'icone, sur le modèle du Toggle shadcn (data-[state=on]).
+     Le bg-accent seul ne se detache pas assez sur une grille : l'anneau tranche. */
+  .button-selected {
+    @apply border-ring bg-accent text-accent-foreground hover:bg-accent
+           ring-2 ring-ring/60;
+  }
+  .button-xs {
+    @apply h-6 gap-1 rounded-md px-2 text-xs has-[>svg]:px-1.5
+           [&_svg:not([class*='size-'])]:size-3;
+  }
+  .button-sm { @apply h-8 gap-1.5 rounded-md px-3 has-[>svg]:px-2.5; }
+  .button-icon { @apply size-9 px-0 has-[>svg]:px-0; }
+  .button-icon-sm { @apply size-8 px-0 has-[>svg]:px-0; }
+  .button-icon-xs {
+    @apply size-6 rounded-md px-0 has-[>svg]:px-0 [&_svg:not([class*='size-'])]:size-3;
+  }
+
+  /* Input */
+  .input {
+    @apply h-9 w-full min-w-0 rounded-md border border-input bg-input/30 px-3 py-1
+           text-base shadow-xs transition-[color,box-shadow] outline-none
+           selection:bg-primary selection:text-primary-foreground
+           placeholder:text-muted-foreground
+           disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50
+           md:text-sm focus-visible:border-ring focus-visible:ring-[3px]
+           focus-visible:ring-ring/50;
+  }
+
+  /* Select — shadcn s'appuie sur Radix ; ici c'est un <select> natif, donc les classes
+     du SelectTrigger plus le chevron en background et le style des options, que Radix
+     rendait en markup. */
+  .select {
+    @apply flex h-9 w-full items-center justify-between gap-2 rounded-md border
+           border-input bg-input/30 px-3 py-2 text-sm whitespace-nowrap shadow-xs
+           transition-[color,box-shadow] outline-none appearance-none
+           hover:bg-input/50 focus-visible:border-ring focus-visible:ring-[3px]
+           focus-visible:ring-ring/50
+           disabled:cursor-not-allowed disabled:opacity-50;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23a1a1a1' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='m6 9 6 6 6-6'/></svg>");
+    background-repeat: no-repeat;
+    background-position: right 0.625rem center;
+    padding-right: 2rem;
+  }
+  .select optgroup { @apply bg-popover text-muted-foreground text-xs font-normal; }
+  .select option { @apply bg-popover text-popover-foreground text-sm; }
+
+  /* Tabs — TabsList et TabsTrigger ; l'etat actif est porte par .active plutot que
+     par le data-state de Radix. */
+  .tabs-list {
+    @apply inline-flex h-9 w-full items-center justify-center rounded-lg bg-muted
+           p-[3px] text-muted-foreground;
+  }
+  .tabs-trigger {
+    @apply relative inline-flex h-[calc(100%-1px)] flex-1 items-center justify-center
+           gap-1.5 rounded-md border border-transparent px-2 py-1 text-sm font-medium
+           whitespace-nowrap text-muted-foreground transition-all
+           hover:text-foreground focus-visible:border-ring focus-visible:ring-[3px]
+           focus-visible:ring-ring/50 focus-visible:outline-1 focus-visible:outline-ring
+           disabled:pointer-events-none disabled:opacity-50;
+  }
+  .tabs-trigger.active {
+    @apply border-input bg-input/30 text-foreground shadow-sm;
+  }
+  .tabs-trigger[aria-disabled="true"] { @apply pointer-events-none opacity-50; }
+
+  /* Badge */
+  .badge {
+    @apply inline-flex w-fit shrink-0 items-center justify-center gap-1 overflow-hidden
+           rounded-full border border-transparent px-2 py-0.5 text-xs font-medium
+           whitespace-nowrap transition-[color,box-shadow]
+           bg-secondary text-secondary-foreground;
+  }
+
+  /* Label */
+  .label {
+    @apply flex items-center gap-2 text-sm leading-none font-medium select-none
+           peer-disabled:cursor-not-allowed peer-disabled:opacity-50;
+  }
+
+  /* Checkbox — input natif : le style de l'etat coche passe par :checked et une coche
+     en background, la ou shadcn rend un CheckboxIndicator. */
+  /* `peer` n'est pas une utility applicable : c'est un marqueur, il reste sur le markup. */
+  .checkbox {
+    @apply size-4 shrink-0 appearance-none rounded-[4px] border border-input
+           bg-input/30 shadow-xs transition-shadow outline-none
+           focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50
+           disabled:cursor-not-allowed disabled:opacity-50
+           checked:border-primary checked:bg-primary;
+  }
+  .checkbox:checked {
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%23262626' stroke-width='3.5' stroke-linecap='round' stroke-linejoin='round'><path d='M20 6 9 17l-5-5'/></svg>");
+    background-repeat: no-repeat;
+    background-position: center;
+  }
+
+  /* Slider — input[type=range] natif habille comme le Slider shadcn : piste bg-muted
+     de 1.5, pouce rond borde primary. Les pseudo-elements ne se factorisent pas entre
+     moteurs, d'ou la repetition WebKit / Firefox. */
+  .slider {
+    @apply relative flex w-full touch-none items-center appearance-none bg-transparent
+           select-none outline-none disabled:opacity-50;
+    height: 1rem;
+  }
+  .slider::-webkit-slider-runnable-track {
+    @apply h-1.5 w-full rounded-full bg-muted;
+  }
+  .slider::-webkit-slider-thumb {
+    @apply size-4 appearance-none rounded-full border border-primary bg-white shadow-sm
+           transition-[color,box-shadow];
+    margin-top: -0.3125rem;   /* recentre le pouce sur une piste de 1.5 */
+  }
+  .slider:focus-visible::-webkit-slider-thumb { @apply ring-4 ring-ring/50; }
+  .slider::-moz-range-track { @apply h-1.5 w-full rounded-full bg-muted; }
+  .slider::-moz-range-thumb {
+    @apply size-4 rounded-full border border-primary bg-white shadow-sm;
+  }
+  .slider:focus-visible::-moz-range-thumb { @apply ring-4 ring-ring/50; }
+
+  /* Dialog — <dialog> natif : ::backdrop remplace le DialogOverlay de Radix, et
+     l'animation d'ouverture se declenche sur [open] plutot que sur data-state. */
+  /* m-auto : le preflight Tailwind pose margin:0 sur tout, ce qui annule le margin:auto
+     dont le navigateur se sert pour centrer un <dialog> modal. */
+  .dialog {
+    @apply m-auto w-full max-w-[calc(100%-2rem)] rounded-lg border bg-background p-6
+           shadow-lg text-foreground outline-none sm:max-w-sm;
+  }
+  .dialog::backdrop { background-color: rgb(0 0 0 / 0.5); }
+  .dialog-title { @apply text-lg leading-none font-semibold; }
+  .dialog-description { @apply text-sm text-muted-foreground; }
+  .dialog-footer { @apply flex gap-2; }
+
+  /* Separator */
+  .separator { @apply h-px w-full shrink-0 bg-border; }
+
+  /* Tooltip — le Tooltip shadcn est un composant Radix ; ici la bulle est en CSS pur,
+     avec ses couleurs (bg-primary) et sa flèche. Le title natif tarde ~1 s et se lit
+     mal sur une grille d'icones, d'ou data-tip. */
+  .tooltip { @apply relative; }
+  .tooltip:hover { z-index: 30; }
+  .tooltip[data-tip]:hover::after {
+    content: attr(data-tip);
+    @apply pointer-events-none absolute bottom-[calc(100%+7px)] left-1/2 z-30 w-fit
+           -translate-x-1/2 rounded-md bg-primary px-3 py-1.5 text-xs font-medium
+           whitespace-nowrap text-primary-foreground shadow-md;
+  }
+  .tooltip[data-tip]:hover::before {
+    content: "";
+    @apply pointer-events-none absolute bottom-[calc(100%+3px)] left-1/2 z-30 size-2
+           -translate-x-1/2 rotate-45 rounded-[2px] bg-primary;
+  }
+}
+
+/* ---- le peu qui ne releve d'aucun composant ------------------------------ */
+
 #cv { display: block; width: 100%; height: 100%; }
 
-/* Quadrillage discret derriere la preview, en registre plan technique. Derive de
-   la couleur de texte du thème, donc valable en clair comme en sombre. */
+/* Quadrillage derriere la preview, derive de la couleur de texte du thème. */
 .blueprint-grid {
-  --grid-line: color-mix(in oklab, var(--color-base-content) 7%, transparent);
+  --grid-line: color-mix(in oklab, var(--foreground) 7%, transparent);
   background-image:
     linear-gradient(var(--grid-line) 1px, transparent 1px),
     linear-gradient(90deg, var(--grid-line) 1px, transparent 1px);
@@ -32,8 +265,7 @@
 .iconbtn svg { display: block; width: 100%; height: 100%; }
 .iconbtn-wide svg { width: auto; height: 100%; }
 
-/* Vignettes du plateau : une icone occupe toute la hauteur, deux (empreinte +
-   tete) se partagent la largeur. Impossible a exprimer en utilitaires puisque le
-   nombre d'icones varie selon la categorie. */
+/* Vignettes du plateau : une icone occupe toute la hauteur, deux (empreinte + tete)
+   se partagent la largeur — le nombre varie selon la categorie. */
 .cart-thumb svg { width: auto; height: auto; max-width: 100%; max-height: 100%; }
 .cart-thumb svg:not(:only-child) { max-width: calc(50% - 2px); }
