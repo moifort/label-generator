@@ -1,0 +1,39 @@
+/* Source du CSS : Tailwind + daisyUI, compile puis inline dans index.html.
+   Regenerer avec `npm run css` apres toute modification du markup — Tailwind ne
+   garde que les classes qu'il trouve dans index.html, une classe ajoutee au
+   markup sans rebuild n'aura aucun style. */
+@import "tailwindcss" source(none);
+@source "../dist/scan.html";
+
+/* Couleurs par defaut de daisyUI : thème "light", et "dark" quand le systeme le demande.
+   Aucun thème maison, les composants portent leur propre identite. */
+@plugin "daisyui";
+
+/* ---- le peu qui ne se dit pas en composants ----------------------------- */
+
+/* Preview 3D : le canvas remplit son cadre, le panneau de controles remonte
+   par-dessus de 16px pour masquer la couture. */
+#cv { display: block; width: 100%; height: 100%; }
+
+/* Quadrillage discret derriere la preview, en registre plan technique. Derive de
+   la couleur de texte du thème, donc valable en clair comme en sombre. */
+.blueprint-grid {
+  --grid-line: color-mix(in oklab, var(--color-base-content) 7%, transparent);
+  background-image:
+    linear-gradient(var(--grid-line) 1px, transparent 1px),
+    linear-gradient(90deg, var(--grid-line) 1px, transparent 1px);
+  background-size: 22px 22px;
+  background-position: center top;
+}
+
+/* Les SVG d'icones sont generes par iconSVG() sans classe : leur dimensionnement se
+   dit donc ici. Bouton carre de la grille : l'icone remplit le cadre. Bouton large
+   (ecrous, clous, chevilles) : hauteur imposee, largeur libre pour garder le ratio. */
+.iconbtn svg { display: block; width: 100%; height: 100%; }
+.iconbtn-wide svg { width: auto; height: 100%; }
+
+/* Vignettes du plateau : une icone occupe toute la hauteur, deux (empreinte +
+   tete) se partagent la largeur. Impossible a exprimer en utilitaires puisque le
+   nombre d'icones varie selon la categorie. */
+.cart-thumb svg { width: auto; height: auto; max-width: 100%; max-height: 100%; }
+.cart-thumb svg:not(:only-child) { max-width: calc(50% - 2px); }

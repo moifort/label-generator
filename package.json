@@ -1,0 +1,13 @@
+{
+  "name": "label-generator",
+  "private": true,
+  "description": "Build du CSS Tailwind + daisyUI, inline dans index.html",
+  "scripts": {
+    "css": "node tools/build-css.mjs"
+  },
+  "devDependencies": {
+    "@tailwindcss/cli": "^4.3.3",
+    "daisyui": "^5.7.9",
+    "tailwindcss": "^4.3.3"
+  }
+}
