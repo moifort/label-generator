@@ -22,7 +22,3 @@ npm install && npm run css
 ```
 
 Rerun that after touching the markup — Tailwind only keeps the classes it finds, so a new class without a rebuild gets no styles.
-
-## Credits
-
-Designed for the [Ultimate Gridfinity Bins Collection](https://makerworld.com/fr/models/47599-ultimate-gridfinity-bins-collection-parametric#profileId-49320). Big thanks to [Alexandre Chappel](https://www.alch.shop).
