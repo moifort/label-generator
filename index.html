@@ -436,18 +436,29 @@ function updateShadowCam(){
 // fill light removed: it lit the shadow side and created a bright fringe
 
 const PANEL_OVERLAP=16;   // px du bas du canvas recouverts par .panel (margin-top:-16px)
+// Le cadrage se cale sur l'ETIQUETTE, pas sur le bin : cadrer les 45 mm du bin la reduirait a
+// un timbre, alors que c'est elle qu'on vient lire. On elargit ensuite autour et on descend le
+// centre, ce qui laisse voir le rebord et le haut du corps — assez pour situer l'etiquette.
+// L'emprise depend de la rotation du pivot, donc on la mesure par reconstruction, pas par image.
+let fit={hx:24,hy:14,cx:0,cy:0};
+function computeFit(){
+  const b=new THREE.Box3().setFromObject(mount);
+  if(!isFinite(b.min.x))return;
+  const c=b.getCenter(new THREE.Vector3()), s=b.getSize(new THREE.Vector3());
+  const hx=s.x/2*1.22, hy=s.y/2*2.5;
+  fit={hx, hy, cx:c.x, cy:c.y-hy*0.40};
+}
 function fitCamera(w,h){
-  // Rotation autour de l'axe vertical : la hauteur projetee vaut toujours H/2 et la largeur
-  // balayee ne depasse jamais l'emprise a plat -> le cadrage a plat suffit, stable pendant le spin.
-  const margin=1.14;
-  const hw=((W+2*TAB_EXT)/2)*margin, hh=(H/2)*margin;
+  const margin=1.10;
+  const hw=fit.hx*margin, hh=fit.hy*margin;
   const vh=Math.max(1,h-PANEL_OVERLAP);                 // hauteur reellement visible
   const ca=w/vh, cca=hw/hh;
   let fw,fh;
   if(ca>=cca){fh=hh; fw=fh*ca;} else {fw=hw; fh=fw/ca;}
   // etendre le frustum vers le bas de la hauteur cachee, pour centrer dans la zone VISIBLE
   const extra=2*fh*PANEL_OVERLAP/vh;
-  camera.left=-fw; camera.right=fw; camera.top=fh; camera.bottom=-fh-extra;
+  camera.left=fit.cx-fw; camera.right=fit.cx+fw;
+  camera.top=fit.cy+fh; camera.bottom=fit.cy-fh-extra;
   camera.updateProjectionMatrix();
   updateShadowCam();
 }
@@ -518,6 +529,45 @@ function buildBase(){
   model.add(baseMesh);
 }
 buildBase();
+
+// ---------- bin d'apercu ----------
+// Bin GENERIQUE, present uniquement dans l'apercu : il situe l'etiquette dans son rail. La
+// spec Gridfinity (42 mm par unite, coins arrondis) est un standard ouvert ; rien n'est
+// repris d'un modele tiers, et l'export 3MF ne contient toujours que les etiquettes.
+// Repere du bin : X largeur, Y hauteur (0 = dessous), Z profondeur (0 = face avant).
+const BIN_UNIT=42, BIN_GAP=0.5, BIN_WALL=1.4, BIN_DEPTH=BIN_UNIT-BIN_GAP, BIN_H=45.55;
+const binGroup=new THREE.Group(); pivot.add(binGroup);
+const matBin=new THREE.MeshStandardMaterial({color:0x39424a,roughness:0.85,metalness:0});
+function labelUnits(){let u=1;for(const k of [3,2])if(W>=LABEL_TABLE[k]){u=k;break;}return u;}
+function buildBin(){
+  for(const m of [...binGroup.children]){binGroup.remove(m);m.geometry.dispose();}
+  const w=labelUnits()*BIN_UNIT-BIN_GAP, d=BIN_DEPTH, h=BIN_H, t=BIN_WALL;
+  const box=(sx,sy,sz,px,py,pz)=>{
+    const m=new THREE.Mesh(new THREE.BoxGeometry(sx,sy,sz),matBin);
+    m.position.set(px,py,pz); binGroup.add(m);
+  };
+  box(w,t,d,        0,        t/2, -d/2);        // fond
+  box(w,h,t,        0,        h/2, -t/2);        // paroi avant : c'est elle qui porte l'etiquette
+  box(w,h,t,        0,        h/2, -d+t/2);      // paroi arriere
+  box(t,h,d-2*t, -w/2+t/2,    h/2, -d/2);        // paroi gauche
+  box(t,h,d-2*t,  w/2-t/2,    h/2, -d/2);        // paroi droite
+}
+
+// L'etiquette est construite a plat, centree, relief vers +Z. Le montage la redresse contre la
+// paroi avant du bin, juste sous le rebord, et la couche legerement comme dans un vrai rail.
+// LABEL_DROP : retrait du haut de l'etiquette sous le rebord du bin. LABEL_TILT couche son haut
+// vers l'arriere, comme dans un vrai rail ; le decalage en Z l'empeche de traverser la paroi.
+const LABEL_TILT=-0.17, LABEL_DROP=1.6;
+const mount=new THREE.Group(); pivot.add(mount); mount.add(model);
+function placeLabel(){
+  mount.rotation.x=LABEL_TILT;
+  mount.position.set(0, BIN_H-LABEL_DROP-H/2, 1.1);
+}
+
+// Vue 3/4 legerement plongeante : de face on ne verrait qu'un rectangle, et trop de biais
+// deforme le texte de l'etiquette, qu'on doit pouvoir lire.
+pivot.rotation.set(-0.20, 0.17, 0);
+
 // recentre model so the label centre (W/2,H/2 of our build space)... base already centred at origin.
 
 // ---------- icon artwork (sampled from the uploaded SVG to point outlines) ----------
@@ -929,6 +979,7 @@ function applyTextPolicy(){
 function updateSize(){
   [W,H]=dims();
   buildBase();
+  buildBin(); placeLabel(); computeFit();   // le bin suit le format de l'etiquette
   const lv=document.getElementById('lwidthVal'); if(lv){const u=parseFloat(document.getElementById('lwidth').value); lv.textContent=u+'U';}
   syncDivOptions();
   refreshZones();
@@ -1220,6 +1271,10 @@ function applyLayerHeight(){
 }
 document.getElementById('layerH').addEventListener('change',applyLayerHeight);
 applyLayerHeight();
+
+// Montage initial du bin. Pas plus haut, a cote de buildBin() : labelUnits() lit LABEL_TABLE,
+// declare en const plus bas — l'appeler avant son initialisation leve une ReferenceError.
+buildBin(); placeLabel(); computeFit();
 
 wireToggle('categoryToggle','category');
 wireToggle('divToggle','divisions');
