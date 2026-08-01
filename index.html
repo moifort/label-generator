@@ -1248,13 +1248,20 @@ function mountSelect(sel){
     it.addEventListener('click',()=>{commit(opt.value);close();});
     content.appendChild(it);items.push(it);
   };
-  for(const node of sel.children){
-    if(node.tagName==='OPTGROUP'){
-      const lbl=document.createElement('div');lbl.className='select-label';
-      lbl.textContent=node.label;content.appendChild(lbl);
-      for(const o of node.children)addItem(o);
-    } else if(node.tagName==='OPTION')addItem(node);
-  }
+  // Construit les .select-item a partir des <option>. Extrait dans une fonction car la liste
+  // des hauteurs de couche change quand on change de buse : le select natif est repeuple, et
+  // le composant doit pouvoir se reconstruire dessus (sel.refreshItems, plus bas).
+  const buildItems=()=>{
+    content.textContent='';items.length=0;
+    for(const node of sel.children){
+      if(node.tagName==='OPTGROUP'){
+        const lbl=document.createElement('div');lbl.className='select-label';
+        lbl.textContent=node.label;content.appendChild(lbl);
+        for(const o of node.children)addItem(o);
+      } else if(node.tagName==='OPTION')addItem(node);
+    }
+  };
+  buildItems();
 
   let cursor=-1;
   const sync=()=>{
@@ -1290,6 +1297,7 @@ function mountSelect(sel){
       if(items[cursor])commit(items[cursor].dataset.value);close();trigger.focus();}
   });
   sel.addEventListener('change',sync);
+  sel.refreshItems=()=>{buildItems();sync();};   // apres repeuplement des <option>
   sync();
 }
 
