@@ -108,6 +108,18 @@ window.addEventListener("load",function(){
       </select>
     </div>
 
+    <!-- La buse porte ses consequences dans ses data-* : largeur du ruban de texte monotrait,
+         largeur du separateur, et hauteurs de couche praticables. Comme data-bed sur l'imprimante,
+         cette liste est la seule chose a maintenir, le JS n'a aucune table en double. -->
+    <div class="grid gap-2 mb-4">
+      <label class="label" for="nozzle">Nozzle</label>
+      <select id="nozzle">
+        <option value="0.4" data-stroke="0.45" data-sep="0.50" data-layers="0.08,0.12,0.16,0.20" selected>0.4 mm — standard</option>
+        <option value="0.2" data-stroke="0.25" data-sep="0.30" data-layers="0.06,0.08,0.10,0.12">0.2 mm — fine text</option>
+      </select>
+      <p class="text-xs text-muted-foreground" id="nozzleHint"></p>
+    </div>
+
     <div class="flex gap-4 mb-4">
       <div class="grid gap-2 flex-1">
         <label class="label justify-between" for="lwidth">Width
@@ -343,6 +355,38 @@ window.addEventListener("load",function(){
 </dialog>
 
 <script>
+// ---------- diametre de buse ----------
+// Lu sur l'option selectionnee, qui porte elle-meme ses consequences (data-stroke, data-sep,
+// data-layers). Declare en tete du script : la largeur de trait est lue des la premiere
+// construction de geometrie, bien avant le code du plateau.
+// La buse vaut pour la plaque entiere (comme l'imprimante et la hauteur de couche), elle
+// n'entre donc pas dans CART_FIELDS : une plaque s'imprime avec une seule buse.
+const NOZZLE_FALLBACK={stroke:0.45,sep:0.50,layers:[0.08,0.12,0.16,0.20]};
+const nozzleSel=document.getElementById('nozzle');
+function readNozzle(){
+  const o=nozzleSel.selectedOptions[0]; if(!o)return {...NOZZLE_FALLBACK};
+  const stroke=parseFloat(o.dataset.stroke), sep=parseFloat(o.dataset.sep);
+  const layers=(o.dataset.layers||'').split(',').map(Number).filter(n=>n>0);
+  return {
+    stroke: stroke>0?stroke:NOZZLE_FALLBACK.stroke,
+    sep:    sep>0   ?sep   :NOZZLE_FALLBACK.sep,
+    layers: layers.length?layers:NOZZLE_FALLBACK.layers.slice(),
+  };
+}
+let NOZZLE=readNozzle();
+// L'apercu 3D rend le texte en police pleine, jamais en monotrait : sans ce rappel, changer
+// de buse semblerait sans effet (seuls le separateur et l'epaisseur de plaque bougent a l'ecran).
+function updateNozzleHint(){
+  const h=document.getElementById('nozzleHint');
+  if(h)h.textContent='Text printed as '+NOZZLE.stroke.toFixed(2)+' mm strokes';
+}
+function onNozzleChange(){
+  NOZZLE=readNozzle();
+  updateNozzleHint();
+}
+nozzleSel.addEventListener('change',onNozzleChange);
+updateNozzleHint();
+
 // ---------- fixed spec (mm) ----------
 // Format Gridfinity a languettes : corps principal + bande laterale qui deborde (clips dans les rails).
 let W=35.8,H=11.5,T=0.64;         // corps principal ; T=0.64 = 8 couches de 0.08 (chanfreins inclus)
