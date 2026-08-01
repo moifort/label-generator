@@ -89,7 +89,6 @@
     @apply border border-input bg-input/30 text-foreground shadow-xs
            hover:bg-input/50 hover:text-accent-foreground;
   }
-  .button-secondary { @apply bg-secondary text-secondary-foreground hover:bg-secondary/80; }
   .button-ghost {
     @apply bg-transparent text-foreground hover:bg-accent/50 hover:text-accent-foreground;
   }
@@ -103,8 +102,6 @@
     @apply h-6 gap-1 rounded-md px-2 text-xs has-[>svg]:px-1.5
            [&_svg:not([class*='size-'])]:size-3;
   }
-  .button-sm { @apply h-8 gap-1.5 rounded-md px-3 has-[>svg]:px-2.5; }
-  .button-icon { @apply size-9 px-0 has-[>svg]:px-0; }
   .button-icon-sm { @apply size-8 px-0 has-[>svg]:px-0; }
   .button-icon-xs {
     @apply size-6 rounded-md px-0 has-[>svg]:px-0 [&_svg:not([class*='size-'])]:size-3;
@@ -121,23 +118,33 @@
            focus-visible:ring-ring/50;
   }
 
-  /* Select — shadcn s'appuie sur Radix ; ici c'est un <select> natif, donc les classes
-     du SelectTrigger plus le chevron en background et le style des options, que Radix
-     rendait en markup. */
-  .select {
+  /* Select — SelectTrigger / SelectContent / SelectItem / SelectLabel. Un <select>
+     natif ne peut pas rendre le popover shadcn (les options sont dessinees par l'OS) :
+     mountSelect() le masque et remonte ce markup au-dessus. */
+  .select-trigger {
     @apply flex h-9 w-full items-center justify-between gap-2 rounded-md border
            border-input bg-input/30 px-3 py-2 text-sm whitespace-nowrap shadow-xs
-           transition-[color,box-shadow] outline-none appearance-none
-           hover:bg-input/50 focus-visible:border-ring focus-visible:ring-[3px]
-           focus-visible:ring-ring/50
-           disabled:cursor-not-allowed disabled:opacity-50;
-    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23a1a1a1' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='m6 9 6 6 6-6'/></svg>");
-    background-repeat: no-repeat;
-    background-position: right 0.625rem center;
-    padding-right: 2rem;
+           transition-[color,box-shadow] outline-none hover:bg-input/50
+           focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50
+           disabled:cursor-not-allowed disabled:opacity-50
+           [&_svg]:pointer-events-none [&_svg]:shrink-0
+           [&_svg:not([class*='size-'])]:size-4
+           [&_svg:not([class*='text-'])]:text-muted-foreground;
   }
-  .select optgroup { @apply bg-popover text-muted-foreground text-xs font-normal; }
-  .select option { @apply bg-popover text-popover-foreground text-sm; }
+  .select-content {
+    @apply absolute top-[calc(100%+0.25rem)] left-0 z-50 max-h-72 w-full min-w-[8rem]
+           overflow-x-hidden overflow-y-auto rounded-md border bg-popover p-1
+           text-popover-foreground shadow-md;
+  }
+  .select-item {
+    @apply relative flex w-full cursor-default items-center gap-2 rounded-sm py-1.5
+           pr-8 pl-2 text-sm outline-hidden select-none
+           hover:bg-accent hover:text-accent-foreground;
+  }
+  /* L'item survole au clavier porte .active : meme rendu que :hover, sans la souris. */
+  .select-item.active { @apply bg-accent text-accent-foreground; }
+  .select-item-check { @apply absolute right-2 flex size-3.5 items-center justify-center; }
+  .select-label { @apply px-2 py-1.5 text-xs text-muted-foreground; }
 
   /* Tabs — TabsList et TabsTrigger ; l'etat actif est porte par .active plutot que
      par le data-state de Radix. */
@@ -174,42 +181,33 @@
 
   /* Checkbox — input natif : le style de l'etat coche passe par :checked et une coche
      en background, la ou shadcn rend un CheckboxIndicator. */
-  /* `peer` n'est pas une utility applicable : c'est un marqueur, il reste sur le markup. */
+  /* Checkbox — bouton portant role=checkbox, comme le Checkbox Radix : l'input natif
+     reste la source de verite mais est masque (mountCheckbox). */
   .checkbox {
-    @apply size-4 shrink-0 appearance-none rounded-[4px] border border-input
-           bg-input/30 shadow-xs transition-shadow outline-none
+    @apply size-4 shrink-0 rounded-[4px] border border-input bg-input/30 shadow-xs
+           transition-shadow outline-none grid place-content-center
            focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50
-           disabled:cursor-not-allowed disabled:opacity-50
-           checked:border-primary checked:bg-primary;
+           disabled:cursor-not-allowed disabled:opacity-50;
   }
-  .checkbox:checked {
-    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%23262626' stroke-width='3.5' stroke-linecap='round' stroke-linejoin='round'><path d='M20 6 9 17l-5-5'/></svg>");
-    background-repeat: no-repeat;
-    background-position: center;
-  }
+  .checkbox[aria-checked="true"] { @apply border-primary bg-primary text-primary-foreground; }
+  .checkbox-indicator { @apply grid place-content-center text-current transition-none; }
+  .checkbox[aria-checked="false"] .checkbox-indicator { @apply invisible; }
 
-  /* Slider — input[type=range] natif habille comme le Slider shadcn : piste bg-muted
-     de 1.5, pouce rond borde primary. Les pseudo-elements ne se factorisent pas entre
-     moteurs, d'ou la repetition WebKit / Firefox. */
+  /* Slider — Slider root / Track / Range / Thumb. L'input[type=range] natif ne permet
+     pas d'habiller la portion parcourue (pas de pseudo-element cross-navigateur pour
+     le "range"), d'ou le composant remonte par mountSlider(). */
   .slider {
-    @apply relative flex w-full touch-none items-center appearance-none bg-transparent
-           select-none outline-none disabled:opacity-50;
-    height: 1rem;
+    @apply relative flex w-full touch-none items-center select-none;
   }
-  .slider::-webkit-slider-runnable-track {
-    @apply h-1.5 w-full rounded-full bg-muted;
+  .slider-track {
+    @apply relative h-1.5 w-full grow overflow-hidden rounded-full bg-muted;
   }
-  .slider::-webkit-slider-thumb {
-    @apply size-4 appearance-none rounded-full border border-primary bg-white shadow-sm
-           transition-[color,box-shadow];
-    margin-top: -0.3125rem;   /* recentre le pouce sur une piste de 1.5 */
+  .slider-range { @apply absolute h-full bg-primary; }
+  .slider-thumb {
+    @apply absolute block size-4 shrink-0 -translate-x-1/2 rounded-full border
+           border-primary bg-white shadow-sm ring-ring/50 outline-none
+           transition-[color,box-shadow] hover:ring-4 focus-visible:ring-4;
   }
-  .slider:focus-visible::-webkit-slider-thumb { @apply ring-4 ring-ring/50; }
-  .slider::-moz-range-track { @apply h-1.5 w-full rounded-full bg-muted; }
-  .slider::-moz-range-thumb {
-    @apply size-4 rounded-full border border-primary bg-white shadow-sm;
-  }
-  .slider:focus-visible::-moz-range-thumb { @apply ring-4 ring-ring/50; }
 
   /* Dialog — <dialog> natif : ::backdrop remplace le DialogOverlay de Radix, et
      l'animation d'ouverture se declenche sur [open] plutot que sur data-state. */
@@ -223,9 +221,6 @@
   .dialog-title { @apply text-lg leading-none font-semibold; }
   .dialog-description { @apply text-sm text-muted-foreground; }
   .dialog-footer { @apply flex gap-2; }
-
-  /* Separator */
-  .separator { @apply h-px w-full shrink-0 bg-border; }
 
   /* Tooltip — le Tooltip shadcn est un composant Radix ; ici la bulle est en CSS pur,
      avec ses couleurs (bg-primary) et sa flèche. Le title natif tarde ~1 s et se lit

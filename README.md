@@ -13,7 +13,15 @@ Labels clip into the rails of standard Gridfinity bins, and are designed for the
 
 ## Contributing
 
-Missing an icon, a category or a printer? [Open an issue](https://github.com/moifort/label-generator/issues) to ask for it, or send a [pull request](https://github.com/moifort/label-generator/pulls) — everything lives in a single `index.html`, so changes stay easy to review.
+Missing an icon, a category or a printer? [Open an issue](https://github.com/moifort/label-generator/issues) to ask for it, or send a [pull request](https://github.com/moifort/label-generator/pulls) — the app ships as a single self-contained `index.html`, so changes stay easy to review.
+
+The interface uses the [shadcn/ui](https://ui.shadcn.com) design system on Tailwind. Styles are written in `src/app.css` and compiled into the `<style id="app-css">` block of `index.html`:
+
+```bash
+npm install && npm run css
+```
+
+Rerun that after touching the markup — Tailwind only keeps the classes it finds, so a new class without a rebuild gets no styles.
 
 ## Credits
 
