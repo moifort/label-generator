@@ -9,6 +9,7 @@ Labels clip into the rails of standard Gridfinity bins, and are designed for [Gr
 - **Category icons** — screws, nuts, electrical, magnets, rack M6, plugs and nails.
 - **Customizable** — custom text, with or without an icon.
 - **Size** — 1U to 3U.
+- **Nozzle** — 0.4 or 0.2 mm; the finer nozzle prints thinner text strokes and unlocks finer layer heights.
 - **Bulk print** — stack several labels on one plate and export them in a single 3MF.
 
 ## Contributing
