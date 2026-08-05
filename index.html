@@ -112,10 +112,10 @@ window.addEventListener("load",function(){
         </select>
       </div>
       <div class="grid gap-2 flex-1 min-w-0">
-        <label class="label" for="nozzle">Nozzle</label>
+        <span class="label">Nozzle</span>
         <select id="nozzle">
-          <option value="0.4" data-stroke="0.45" data-sep="0.50" data-layers="0.08,0.12,0.16,0.20" selected>0.4 mm — standard</option>
-          <option value="0.2" data-stroke="0.25" data-sep="0.30" data-layers="0.06,0.08,0.10,0.12">0.2 mm — fine text</option>
+          <option value="0.4" data-short="0.4 mm" data-stroke="0.45" data-sep="0.50" data-layers="0.08,0.12,0.16,0.20" selected>0.4 mm — standard</option>
+          <option value="0.2" data-short="0.2 mm" data-stroke="0.25" data-sep="0.30" data-layers="0.06,0.08,0.10,0.12">0.2 mm — fine text</option>
         </select>
         <p class="text-xs text-muted-foreground" id="nozzleHint"></p>
       </div>
@@ -284,8 +284,9 @@ window.addEventListener("load",function(){
         </div>
       </div>
       <div class="grid gap-2 flex-1">
-        <label class="label" for="layerH">Layer height (mm)</label>
-        <!-- Options remplies par syncLayerOptions() : elles dependent de la buse choisie. -->
+        <span class="label">Layer height (mm)</span>
+        <!-- Options remplies par syncLayerOptions() : elles dependent de la buse choisie.
+             Quatre valeurs -> mountButtonGroup les affiche en rangee de boutons. -->
         <select id="layerH"></select>
       </div>
       <input type="hidden" id="relmode" value="raised" />
@@ -1245,6 +1246,7 @@ function syncLayerOptions(){
   for(const v of vals){
     const o=document.createElement('option');
     o.value=v; o.textContent=v+(v===vals[0]?' — sharpest':'');   // la plus fine de la liste
+    o.dataset.short=v;                                           // libelle court pour le bouton
     sel.appendChild(o);
   }
   sel.value=vals.includes(keep)?keep:LAYER_DEFAULT;
@@ -1367,6 +1369,51 @@ function mountSelect(sel){
   });
   sel.addEventListener('change',sync);
   sel.refreshItems=()=>{buildItems();sync();};   // apres repeuplement des <option>
+  sync();
+}
+
+// Au-dela de trois ou quatre choix la liste deroulante reste plus lisible, mais en dessous elle
+// cache pour rien : la meme rangee de boutons que Category ou Compartments montre tout d'un coup
+// et se change en un geste. Le <select> natif demeure la source de verite, masque en sr-only
+// comme dans mountSelect ; data-short raccourcit le libelle quand celui de l'option est trop
+// bavard pour un bouton (le texte complet passe alors en title).
+const BUTTON_GROUP_MAX=4;
+function mountButtonGroup(sel){
+  sel.classList.add('sr-only');sel.setAttribute('tabindex','-1');sel.setAttribute('aria-hidden','true');
+  const group=document.createElement('div');group.className='button-group w-full';
+  group.setAttribute('role','group');
+  // Le libelle est un <span class="label"> et non un <label for> : pointer un select sr-only
+  // ferait porter le clic sur un element invisible. Meme convention que Category.
+  const lbl=sel.parentNode.querySelector('.label');
+  if(lbl)group.setAttribute('aria-label',lbl.textContent.trim());
+  sel.parentNode.insertBefore(group,sel);
+
+  const buttons=[];
+  const commit=v=>{if(sel.value===v)return;sel.value=v;
+    sel.dispatchEvent(new Event('input',{bubbles:true}));
+    sel.dispatchEvent(new Event('change',{bubbles:true}));};
+  // Comme pour mountSelect : les <option> peuvent etre repeuplees (hauteurs de couche liees a
+  // la buse), la construction est donc rejouable via sel.refreshItems.
+  const build=()=>{
+    group.textContent='';buttons.length=0;
+    for(const o of sel.options){
+      const b=document.createElement('button');b.type='button';
+      b.className='button button-outline flex-1 px-2';
+      b.dataset.value=o.value;
+      b.textContent=o.dataset.short||o.textContent;
+      if(b.textContent!==o.textContent)b.title=o.textContent;
+      b.addEventListener('click',()=>commit(o.value));
+      group.appendChild(b);buttons.push(b);
+    }
+  };
+  const sync=()=>buttons.forEach(b=>{
+    const on=b.dataset.value===sel.value;
+    b.classList.toggle('active',on);
+    b.setAttribute('aria-pressed',on?'true':'false');
+  });
+  build();
+  sel.addEventListener('change',sync);
+  sel.refreshItems=()=>{build();sync();};
   sync();
 }
 
@@ -1499,10 +1546,14 @@ function buildPicker(selectId,cat,container,wide){
 
 // Montage des composants shadcn sur les controles restes natifs. Appele apres
 // initPickers : les selects drive/head/nut/... y sont deja masques au profit des
-// grilles d'icones, seuls printer et layerH s'affichent encore en liste deroulante.
+// grilles d'icones. Des restants, seul printer garde une liste deroulante ; nozzle et
+// layerH tiennent en quatre choix ou moins et passent en rangee de boutons.
 (function mountFormControls(){
-  for(const el of document.querySelectorAll('select'))
-    if(el.style.display!=='none')mountSelect(el);
+  for(const el of document.querySelectorAll('select')){
+    if(el.style.display==='none')continue;
+    if(el.options.length<=BUTTON_GROUP_MAX&&!el.querySelector('optgroup'))mountButtonGroup(el);
+    else mountSelect(el);
+  }
   mountSlider(document.getElementById('lwidth'));
   mountCheckbox(document.getElementById('showIcons'));
 })();
