@@ -353,6 +353,35 @@ window.addEventListener("load",function(){
 </dialog>
 
 <script>
+// ---------- reglages de machine memorises ----------
+// Imprimante, buse et hauteur de couche decrivent l'atelier, pas l'etiquette : ils ne bougent
+// qu'a l'achat d'une machine, alors que le reste du formulaire change a chaque etiquette. Eux
+// seuls survivent donc d'une visite a l'autre — restaurer une categorie ou un texte serait au
+// mieux inutile, au pire deroutant.
+const PREFS_KEY='labelgen.machine';
+const PREF_IDS=['printer','nozzle','layerH'];
+function loadPrefs(){
+  // Stockage refuse (navigation privee, cookies bloques) ou contenu corrompu : on repart des
+  // valeurs par defaut du markup plutot que de casser le chargement de la page.
+  try{const raw=localStorage.getItem(PREFS_KEY);const p=raw?JSON.parse(raw):null;
+      return p&&typeof p==='object'?p:{};}
+  catch(e){return {};}
+}
+const PREFS=loadPrefs();
+function savePrefs(){
+  const p={};for(const id of PREF_IDS){const el=document.getElementById(id);if(el)p[id]=el.value;}
+  try{localStorage.setItem(PREFS_KEY,JSON.stringify(p));}catch(e){}
+}
+// Une valeur enregistree qui n'existe plus dans la liste (gamme remaniee, buse changee) est
+// ignoree : le select garde alors l'option marquee selected dans le markup.
+function applyPref(id){
+  const el=document.getElementById(id),v=PREFS[id];
+  if(!el||v==null)return;
+  if([...el.options].some(o=>o.value===v))el.value=v;
+}
+applyPref('printer');
+applyPref('nozzle');   // avant readNozzle() : la buse fixe la largeur de trait ET la liste des couches
+
 // ---------- diametre de buse ----------
 // Lu sur l'option selectionnee, qui porte elle-meme ses consequences (data-stroke, data-sep,
 // data-layers). Declare en tete du script : la largeur de trait est lue des la premiere
@@ -1263,7 +1292,11 @@ function applyLayerHeight(){
 }
 document.getElementById('layerH').addEventListener('change',applyLayerHeight);
 syncLayerOptions();
+applyPref('layerH');   // apres le peuplement : les hauteurs praticables dependent de la buse
 applyLayerHeight();
+// Branche apres onNozzleChange (ligne plus haut) : au changement de buse, syncLayerOptions a
+// deja recale layerH quand savePrefs lit les trois valeurs.
+for(const id of PREF_IDS){const el=document.getElementById(id);if(el)el.addEventListener('change',savePrefs);}
 
 wireToggle('categoryToggle','category');
 wireToggle('divToggle','divisions');
